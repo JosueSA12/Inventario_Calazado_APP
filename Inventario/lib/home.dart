@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:pandabar/pandabar.dart';
+
 import 'package:inventario/screens/materiales_view.dart';
 import 'package:inventario/dashboard/dashboard_inicio.dart';
-import 'package:inventario/screens/formulario_resgistrar_calzado.dart';
-import 'package:inventario/screens/formulario_registrar_material.dart';
-import 'package:inventario/screens/alertas_view.dart';
+import 'package:inventario/formularios/formulario_resgistrar_calzado.dart';
+import 'package:inventario/formularios/formulario_registrar_material.dart';
+import 'package:inventario/screens/alertas_stock_view.dart';
 import 'package:inventario/screens/calzado_view.dart';
+
+import 'core/theme/app_colors.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
 
   @override
-  _HomeState createState() => _HomeState();
+  State<Home> createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> {
@@ -20,31 +23,42 @@ class _HomeState extends State<Home> {
   void _mostrarOpcionesDeRegistro(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
                 '¿Qué deseas registrar hoy?',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               // Opción: Nuevo Calzado
               ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.brown.shade100,
-                  child: const Icon(
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.categoriaEstiloFondo,
+                  child: Icon(
                     Icons.shopping_bag_rounded,
-                    color: Colors.brown,
+                    color: AppColors.categoriaEstiloIcono,
                   ),
                 ),
-                title: const Text('Nuevo Calzado '),
+                title: const Text(
+                  'Nuevo Calzado',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -55,14 +69,24 @@ class _HomeState extends State<Home> {
                   );
                 },
               ),
-              const Divider(),
+              const Divider(color: Color(0xFFEFECE9)),
+
               // Opción: Nuevo Material
               ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade100,
-                  child: const Icon(Icons.layers_rounded, color: Colors.blue),
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.categoriaMaterialFondo,
+                  child: Icon(
+                    Icons.layers_rounded,
+                    color: AppColors.categoriaMaterialIcono,
+                  ),
                 ),
-                title: const Text('Nueva Materia Prima / Insumo'),
+                title: const Text(
+                  'Nueva Materia Prima / Insumo',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   final resultado = await Navigator.push(
@@ -77,16 +101,24 @@ class _HomeState extends State<Home> {
                   }
                 },
               ),
-              const Divider(),
+              const Divider(color: Color(0xFFEFECE9)),
+
+              // Opción: Registrar Venta
               ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.brown.shade100,
-                  child: const Icon(
-                    Icons.shopping_bag_rounded,
-                    color: Colors.brown,
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.salidaFondo,
+                  child: Icon(
+                    Icons.monetization_on_rounded,
+                    color: AppColors.salidaTexto,
                   ),
                 ),
-                title: const Text('Registrar Venta'),
+                title: const Text(
+                  'Registrar Venta',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -108,13 +140,15 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
+      backgroundColor: AppColors.background,
       bottomNavigationBar: PandaBar(
-        fabColors: [
-          const Color.fromARGB(255, 1, 179, 39),
-          const Color.fromARGB(255, 1, 199, 83),
-        ],
+        backgroundColor: AppColors.surface,
+        // Mantienes tus colores llamativos para el botón de acción principal
+        fabColors: const [Color(0xFF01B327), Color(0xFF01C753)],
         fabIcon: const Icon(Icons.add, color: Colors.white, size: 28),
 
+        //ActiveColor: AppColors.primary,
+        //unselectedColor: AppColors.textLight,
         buttonData: [
           PandaBarButtonData(
             id: 'Dashboard',
@@ -150,11 +184,11 @@ class _HomeState extends State<Home> {
         builder: (context) {
           switch (page) {
             case 'Dashboard':
-              return const DashboardInicio(); //DashboardInicio
+              return const DashboardInicio();
             case 'Zapatos':
-              return const CalzadosView(); //Calzados Screen
+              return const CalzadosView();
             case 'Materiales':
-              return const MaterialesView(); //Materiales Screen
+              return const MaterialesView();
             case 'Alertas':
               return const AlertasStockView();
             default:

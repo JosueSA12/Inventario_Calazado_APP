@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   pandabar: ^0.1.2
   http: ^1.6.0
+  flex_color_scheme: ^8.4.0
+  flutter_screenutil: ^5.9.3
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:

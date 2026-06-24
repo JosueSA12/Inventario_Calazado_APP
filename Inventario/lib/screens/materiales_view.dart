@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'formulario_editar.dart';
-import 'dialogo_eliminar.dart';
-import 'package:inventario/widgets/detalles_view.dart';
+
+import 'package:inventario/core/theme/app_colors.dart';
+
+import 'package:inventario/clases/mostrar_material.dart';
+import 'package:inventario/core/widgets/material_card.dart';
+import 'package:inventario/core/widgets/detalle_material_sheet.dart';
+import 'package:inventario/formularios/formulario_editar.dart';
+import 'package:inventario/formularios/dialogo_eliminar.dart';
 
 class MaterialesView extends StatefulWidget {
   const MaterialesView({super.key});
@@ -13,9 +18,12 @@ class MaterialesView extends StatefulWidget {
 }
 
 class _MaterialesViewState extends State<MaterialesView> {
-  String categoriaSeleccionada = 'Todos';
   final String urlMateriales = 'http://10.0.2.2:3000/api/materiales';
-  late Future<List<dynamic>> _materialesFuture;
+  late Future<List<MaterialModel>> _materialesFuture;
+
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _categoriaSeleccionada = 'Todos';
 
   final List<String> categoriasFiltro = [
     'Todos',
@@ -26,180 +34,206 @@ class _MaterialesViewState extends State<MaterialesView> {
     'Herrajes / Ojales',
   ];
 
-  final Color primaryColor = const Color(0xFF4A3423);
-  final Color backgroundColor = const Color(0xFFFDFBF9);
-  final Color surfaceColor = Colors.white;
-  final Color textDark = const Color(0xFF2C2520);
-  final Color textLight = const Color(0xFF7A726C);
-
   @override
   void initState() {
     super.initState();
     _materialesFuture = obtenerMateriales();
   }
 
-  Future<List<dynamic>> obtenerMateriales() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<List<MaterialModel>> obtenerMateriales() async {
     try {
       final response = await http.get(Uri.parse(urlMateriales));
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => MaterialModel.fromJson(json)).toList();
       }
-      throw Exception('Fallo en el servidor');
+      throw Exception('Error del servidor');
     } catch (e) {
-      throw Exception('No se pudo conectar al backend: $e');
+      throw Exception('No se pudo conectar: $e');
     }
   }
 
-  void _notificarAccion(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  // Refrescar
+  Future<void> _refrescarLista() async {
+    setState(() {
+      _materialesFuture = obtenerMateriales();
+    });
   }
 
-  // FUNCIÓN PARA MOSTRAR EL DETALLE
-  void _mostrarDetalleMaterial(
-    BuildContext context,
-    Map<String, dynamic> material,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DetalleMaterialGeneralSheet(
-        codigo: material['codigo']?.toString() ?? 'S/C',
-        insumo: material['insumo']?.toString() ?? 'Sin nombre',
-        categoria: material['categoria']?.toString() ?? 'General',
-        cantidad: double.tryParse(material['cantidad'].toString()) ?? 0.0,
-        medida: material['medida']?.toString() ?? '',
-        proveedor: material['proveedor']?.toString() ?? 'Sin Proveedor',
-      ),
-    );
+  List<MaterialModel> _filtrarMateriales(List<MaterialModel> materiales) {
+    List<MaterialModel> resultado = List.from(materiales);
+
+    if (_searchQuery.isNotEmpty) {
+      resultado = resultado
+          .where(
+            (m) =>
+                m.insumo.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                m.proveedor.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ) ||
+                m.codigo.toLowerCase().contains(_searchQuery.toLowerCase()),
+          )
+          .toList();
+    }
+
+    if (_categoriaSeleccionada != 'Todos') {
+      resultado = resultado
+          .where((m) => m.categoria == _categoriaSeleccionada)
+          .toList();
+    }
+
+    return resultado;
+  }
+
+  //Mostrar detalle del material
+  void _mostrarDetalle(BuildContext context, MaterialModel material) {
+    if (material.esBajoStock) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => DetalleBajoStockSheet(
+          codigo: material.codigo,
+          insumo: material.insumo,
+          categoria: material.categoria,
+          cantidad: material.cantidad,
+          medida: material.medida,
+          proveedor: material.proveedor,
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => DetalleMaterialGeneralSheet(
+          codigo: material.codigo,
+          insumo: material.insumo,
+          categoria: material.categoria,
+          cantidad: material.cantidad,
+          medida: material.medida,
+          proveedor: material.proveedor,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Inventario de Materiales',
-          style: TextStyle(
-            color: textDark,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: backgroundColor,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: primaryColor),
-            onPressed: () => setState(() {
-              _materialesFuture = obtenerMateriales();
-            }),
+            icon: const Icon(Icons.refresh_rounded),
+            color: AppColors.primary,
+            onPressed: _refrescarLista, // ← Corregido
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // FILTROS
-          Container(
-            height: 38,
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: categoriasFiltro.length,
-              physics: const BouncingScrollPhysics(),
-              itemBuilder: (context, index) {
-                final categoria = categoriasFiltro[index];
-                final bool esSeleccionado = categoriaSeleccionada == categoria;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        categoriaSeleccionada = categoria;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: esSeleccionado ? primaryColor : surfaceColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: esSeleccionado
-                              ? primaryColor
-                              : const Color(0xFFEFECE9),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        categoria,
-                        style: TextStyle(
-                          color: esSeleccionado ? Colors.white : textLight,
-                          fontWeight: esSeleccionado
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              decoration: InputDecoration(
+                hintText: 'Buscar material',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: AppColors.surface,
+              ),
             ),
           ),
 
-          // LISTA FUTURA DE MATERIALES
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                const Text(
+                  "Categoría:",
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _categoriaSeleccionada,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                        items: categoriasFiltro.map((String cat) {
+                          return DropdownMenuItem<String>(
+                            value: cat,
+                            child: Text(cat),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() => _categoriaSeleccionada = newValue);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           Expanded(
-            child: FutureBuilder<List<dynamic>>(
+            child: FutureBuilder<List<MaterialModel>>(
               future: _materialesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: Color(0xFF4A3423),
-                    ),
-                  );
-                } else if (snapshot.hasError) {
-                  return Container(
-                    margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: const TextStyle(color: Color(0xFF991B1B)),
-                    ),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   );
                 }
 
-                final todosLosMateriales = snapshot.data ?? [];
-                final materialesFiltrados = categoriaSeleccionada == 'Todos'
-                    ? todosLosMateriales
-                    : todosLosMateriales
-                          .where((m) => m['categoria'] == categoriaSeleccionada)
-                          .toList();
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
 
-                if (materialesFiltrados.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No hay materiales.',
-                      style: TextStyle(color: textLight, fontSize: 14),
-                    ),
+                final materiales = _filtrarMateriales(snapshot.data ?? []);
+
+                if (materiales.isEmpty) {
+                  return const Center(
+                    child: Text('No se encontraron materiales'),
                   );
                 }
 
@@ -208,239 +242,47 @@ class _MaterialesViewState extends State<MaterialesView> {
                     horizontal: 20,
                     vertical: 8,
                   ),
-                  itemCount: materialesFiltrados.length,
-                  physics: const BouncingScrollPhysics(),
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
+                  itemCount: materiales.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final material = materialesFiltrados[index];
+                    final material = materiales[index];
+                    return MaterialCard(
+                      material: material,
+                      onTap: () => _mostrarDetalle(context, material),
+                      onEdit: () async {
+                        final materialMap = {
+                          'codigo': material.codigo,
+                          'insumo': material.insumo,
+                          'categoria': material.categoria,
+                          'cantidad': material.cantidad,
+                          'medida': material.medida,
+                          'proveedor': material.proveedor,
+                        };
 
-                    Color colorCategoria;
-                    IconData iconoMaterial;
-                    switch (material['categoria']) {
-                      case 'Cuero':
-                        colorCategoria = const Color(0xFFD97706);
-                        iconoMaterial = Icons.texture_rounded;
-                        break;
-                      case 'Pegamentos / Tintes':
-                        colorCategoria = const Color(0xFF7C3AED);
-                        iconoMaterial = Icons.science_rounded;
-                        break;
-                      case 'Suelas':
-                        colorCategoria = const Color(0xFF0D9488);
-                        iconoMaterial = Icons.grid_view_rounded;
-                        break;
-                      case 'Herrajes / Ojales':
-                        colorCategoria = const Color(0xFF6B7280);
-                        iconoMaterial = Icons.radio_button_checked_rounded;
-                        break;
-                      default:
-                        colorCategoria = const Color(0xFF2563EB);
-                        iconoMaterial = Icons.layers_rounded;
-                    }
-
-                    final double cantidadNum = double.parse(
-                      material['cantidad'].toString(),
-                    );
-                    final bool bajoStock = cantidadNum < 5.0;
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: surfaceColor,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF1A1008).withOpacity(0.04),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
+                        final editado = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                FormularioEditar(material: materialMap),
                           ),
-                        ],
-                      ),
-                      // MANEJAR EL CLIC EN LA TARJETA
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () =>
-                              _mostrarDetalleMaterial(context, material),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // A. ICONO DE CATEGORÍA
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: colorCategoria.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Icon(
-                                    iconoMaterial,
-                                    color: colorCategoria,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
+                        );
 
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        material['insumo'],
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: textDark,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.business_rounded,
-                                            size: 12,
-                                            color: textLight.withOpacity(0.6),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              material['proveedor'] ??
-                                                  'Sin Proveedor',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: textLight,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      if (bajoStock) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '⚠️ BAJO STOCK',
-                                          style: TextStyle(
-                                            color: const Color(0xFFDC2626),
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            backgroundColor: const Color(
-                                              0xFFFEF2F2,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '$cantidadNum',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: bajoStock
-                                            ? const Color(0xFFDC2626)
-                                            : textDark,
-                                      ),
-                                    ),
-                                    Text(
-                                      material['medida'],
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: bajoStock
-                                            ? const Color(0xFFEF4444)
-                                            : textLight,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 6),
-
-                                Container(
-                                  height: 24,
-                                  width: 1,
-                                  color: const Color(0xFFEFECE9),
-                                ),
-
-                                // BOTÓN ACCIÓN EDITAR
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    color: Colors.orange,
-                                    size: 18,
-                                  ),
-                                  onPressed: () async {
-                                    final editado = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => FormularioEditar(
-                                          material: material,
-                                        ),
-                                      ),
-                                    );
-                                    if (editado == true) {
-                                      _notificarAccion(
-                                        '🎉 Material actualizado con éxito',
-                                        Colors.green.shade700,
-                                      );
-                                      setState(() {
-                                        _materialesFuture = obtenerMateriales();
-                                      });
-                                    }
-                                  },
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                  ),
-                                ),
-
-                                //BOTÓN ACCIÓN ELIMINAR
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: Color(0xFFDC2626),
-                                    size: 18,
-                                  ),
-                                  onPressed: () async {
-                                    final eliminado = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => DialogoEliminar(
-                                        codigo: material['codigo'],
-                                        nombre: material['insumo'],
-                                      ),
-                                    );
-                                    if (eliminado == true) {
-                                      _notificarAccion(
-                                        'Insumo eliminado correctamente',
-                                        Colors.brown,
-                                      );
-                                      setState(() {
-                                        _materialesFuture = obtenerMateriales();
-                                      });
-                                    }
-                                  },
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.only(
-                                    left: 4,
-                                    right: 2,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        if (editado == true) {
+                          _refrescarLista();
+                        }
+                      },
+                      onDelete: () async {
+                        final eliminado = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => DialogoEliminar(
+                            codigo: material.codigo,
+                            nombre: material.insumo,
                           ),
-                        ),
-                      ),
+                        );
+                        if (eliminado == true) {
+                          _refrescarLista();
+                        }
+                      },
                     );
                   },
                 );

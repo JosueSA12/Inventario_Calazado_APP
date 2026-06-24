@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:inventario/home.dart';
+import 'core/theme/app_theme.dart';
+import 'home.dart';
 
 void main() {
   runApp(const MiTallerApp());
@@ -13,10 +14,11 @@ class MiTallerApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Taller de Calzado',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
-        useMaterial3: true,
-      ),
+
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
+
       home: const Home(),
     );
   }
