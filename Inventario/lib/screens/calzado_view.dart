@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:inventario/core/widgets/calzado_card.dart';
+
 class CalzadosView extends StatefulWidget {
   const CalzadosView({super.key});
 
@@ -10,12 +12,17 @@ class CalzadosView extends StatefulWidget {
 }
 
 class _CalzadosViewState extends State<CalzadosView> {
-  final String urlCalzados = 'http://10.0.2.2:3000/api/calzados';
+  final String urlCalzados = 'http://192.168.100.122:3000/api/calzados';
   late Future<List<dynamic>> _calzadosFuture;
 
-  final Color primaryColor = const Color(0xFF4A3423);
-  final Color backgroundColor = const Color(0xFFF6F5F3);
-  final Color textDark = const Color(0xFF1C1917);
+  final Color accentColor = const Color(0xFF8B5E3C);
+
+  // Filtros
+  final TextEditingController _searchController = TextEditingController();
+  String _searchTerm = '';
+  String _sortBy = 'precio_asc';
+  String? _filtroModelo;
+  String? _filtroTalla;
 
   @override
   void initState() {
@@ -33,294 +40,297 @@ class _CalzadosViewState extends State<CalzadosView> {
     }
   }
 
+  // Función para aplicar filtros y ordenamiento
+  List<dynamic> _aplicarFiltros(List<dynamic> lista) {
+    List<dynamic> resultado = List.from(lista);
+
+    if (_searchTerm.isNotEmpty) {
+      final busqueda = _searchTerm.toLowerCase();
+      resultado = resultado.where((item) {
+        final modelo = (item['modelo'] ?? '').toString().toLowerCase();
+        final marca = (item['marca'] ?? '').toString().toLowerCase();
+        return modelo.contains(busqueda) || marca.contains(busqueda);
+      }).toList();
+    }
+
+    if (_filtroModelo != null) {
+      resultado = resultado
+          .where((item) => item['modelo'] == _filtroModelo)
+          .toList();
+    }
+
+    if (_filtroTalla != null) {
+      resultado = resultado
+          .where((item) => (item['talla'] ?? '').toString() == _filtroTalla)
+          .toList();
+    }
+
+    resultado.sort((a, b) {
+      if (_sortBy == 'precio_asc') {
+        return (a['precio'] ?? 0).compareTo(b['precio'] ?? 0);
+      } else if (_sortBy == 'precio_desc') {
+        return (b['precio'] ?? 0).compareTo(a['precio'] ?? 0);
+      } else {
+        return (a['modelo'] ?? '').compareTo(b['modelo'] ?? '');
+      }
+    });
+
+    return resultado;
+  }
+
+  void _mostrarFiltros(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Filtros',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+
+              const Text(
+                'Modelo',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              FutureBuilder<List<dynamic>>(
+                future: _calzadosFuture,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox();
+                  final modelos = snapshot.data!
+                      .map((e) => e['modelo']?.toString())
+                      .whereType<String>()
+                      .toSet()
+                      .toList();
+
+                  return DropdownButton<String>(
+                    value: _filtroModelo,
+                    isExpanded: true,
+                    hint: const Text('Todos los modelos'),
+                    items: modelos
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                    onChanged: (val) {
+                      setState(() => _filtroModelo = val);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              const Text(
+                'Talla',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              FutureBuilder<List<dynamic>>(
+                future: _calzadosFuture,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox();
+                  final tallas = snapshot.data!
+                      .map((e) => e['talla']?.toString())
+                      .whereType<String>()
+                      .toSet()
+                      .toList();
+
+                  return DropdownButton<String>(
+                    value: _filtroTalla,
+                    isExpanded: true,
+                    hint: const Text('Todas las tallas'),
+                    items: tallas
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
+                    onChanged: (val) {
+                      setState(() => _filtroTalla = val);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              const Text(
+                'Ordenar por',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              DropdownButton<String>(
+                value: _sortBy,
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'precio_asc',
+                    child: Text('Precio: Menor a Mayor'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'precio_desc',
+                    child: Text('Precio: Mayor a Menor'),
+                  ),
+                  DropdownMenuItem(value: 'nombre', child: Text('Nombre A-Z')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _sortBy = val);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _filtroModelo = null;
+                      _filtroTalla = null;
+                      _sortBy = 'precio_asc';
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Limpiar Filtros'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Calzados en Inventario',
-          style: TextStyle(
-            color: textDark,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: backgroundColor,
-        elevation: 0,
-      ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _calzadosFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF4A3423)),
-            );
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final calzados = snapshot.data ?? [];
-          if (calzados.isEmpty) {
-            return const Center(child: Text('No hay calzados disponibles.'));
-          }
-
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: calzados.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio:
-                  0.62, // Un poco más alto para dar espacio a los círculos de color
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
+      backgroundColor: const Color(0xFFF6F5F3),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shopping_bag_rounded,
+                    color: accentColor,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 14),
+                  Text(
+                    'Calzados en Venta',
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 23,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            itemBuilder: (context, index) {
-              // Enviamos el registro individual a un Widget independiente para que cada carta controle su propio color seleccionado
-              return TarjetaCalzadoConColor(item: calzados[index]);
-            },
-          );
-        },
-      ),
-    );
-  }
-}
 
-// =========================================================================
-// COMPONENTE: TARJETA DE CALZADO CON SELECTOR DINÁMICO DE COLOR
-// =========================================================================
-class TarjetaCalzadoConColor extends StatefulWidget {
-  final Map<String, dynamic> item;
-  const TarjetaCalzadoConColor({super.key, required this.item});
-
-  @override
-  State<TarjetaCalzadoConColor> createState() => _TarjetaCalzadoConColorState();
-}
-
-class _TarjetaCalzadoConColorState extends State<TarjetaCalzadoConColor> {
-  late String _colorActual;
-
-  final Map<String, String> _galeriaDeInternet = {
-    // BOTAS
-    'bota_negro':
-        'https://mauiandsons.com.pe/zapatillas-urbanas-k-grind-hombre-azul1000321028p.html?srsltid=AfmBOor2Z2-HggNgJ5YDavKKMrSx_QTzgwLeKymZq52gc1ZL8dAWbVia',
-    'bota_marron':
-        'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=500&q=80',
-    'bota_miel':
-        'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500&q=80',
-
-    // ZAPATILLAS / DEPORTIVOS
-    'deportivo_negro':
-        'https://mauiandsons.com.pe/zapatillas-urbanas-k-grind-hombre-azul1000321028p.html?srsltid=AfmBOor2Z2-HggNgJ5YDavKKMrSx_QTzgwLeKymZq52gc1ZL8dAWbVia',
-    'deportivo_blanco':
-        'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=500&q=80',
-    'deportivo_azul':
-        'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=500&q=80',
-
-    // FORMAL / VESTIR
-    'formal_negro':
-        'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=500&q=80',
-    'formal_marron':
-        'https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=500&q=80',
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    _colorActual = widget.item['color'] ?? 'Negro';
-  }
-
-  String _obtenerImagenDinamica(String tipo, String color) {
-    final tipoKey = tipo.toLowerCase().trim();
-    final colorKey = color.toLowerCase().trim();
-
-    String llaveBusqueda = '${tipoKey}_$colorKey';
-    if (_galeriaDeInternet.containsKey(llaveBusqueda)) {
-      return _galeriaDeInternet[llaveBusqueda]!;
-    }
-
-    // Si no encuentra el color exacto, busca por tipo genérico
-    if (tipoKey.contains('bota')) return _galeriaDeInternet['bota_marron']!;
-    if (tipoKey.contains('depor') || tipoKey.contains('zapa'))
-      return _galeriaDeInternet['deportivo_negro']!;
-
-    return 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=500&q=80';
-  }
-
-  Color _mapearColorHex(String nombreColor) {
-    final c = nombreColor.toLowerCase().trim();
-    if (c == 'negro') return Colors.black;
-    if (c == 'marron' || c == 'marrón') return const Color(0xFF78350F);
-    if (c == 'miel' || c == 'beige') return const Color(0xFFD97706);
-    if (c == 'blanco') return Colors.white;
-    if (c == 'azul') return Colors.blue.shade900;
-    return Colors.grey; // Color por defecto si viene un color extraño
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final String modelo = widget.item['modelo'] ?? 'Modelo';
-    final String tipo = widget.item['tipo'] ?? 'General';
-    final String talla = widget.item['talla']?.toString() ?? '--';
-    final int stock =
-        int.tryParse(widget.item['stock']?.toString() ?? '0') ?? 0;
-    final double precio =
-        double.tryParse(widget.item['precio']?.toString() ?? '0.0') ?? 0.0;
-    final bool bajoStock =
-        widget.item['bajoStock'] == true || widget.item['bajoStock'] == 1;
-
-    final List<String> coloresDisponibles = ['Negro', 'Marron', 'Miel'];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. IMAGEN CAMBIANTE (Usa _colorActual)
-          Expanded(
-            child: Stack(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    image: DecorationImage(
-                      image: NetworkImage(
-                        _obtenerImagenDinamica(tipo, _colorActual),
-                      ), // <--- DINÁMICO
-                      fit: BoxFit.cover,
-                    ),
+            // Buscador
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchTerm = value),
+                decoration: InputDecoration(
+                  hintText: 'Buscar calzado...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-                if (bajoStock)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'CRÍTICO',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
 
-          // DETALLES Y SELECTOR DE COLOR
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tipo.toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFF4A3423),
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
+            const SizedBox(height: 12),
+
+            // Botón de Filtros
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ElevatedButton.icon(
+                onPressed: () => _mostrarFiltros(context),
+                icon: const Icon(Icons.filter_list),
+                label: const Text('Filtros'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  elevation: 1,
+                  minimumSize: const Size(double.infinity, 48),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  modelo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
+              ),
+            ),
 
-                const SizedBox(height: 6),
+            const SizedBox(height: 8),
 
-                // OPCIÓN INTERACTIVA
-                Row(
-                  children: coloresDisponibles.map((colorItem) {
-                    final bool esElSeleccionado =
-                        _colorActual.toLowerCase() == colorItem.toLowerCase();
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _colorActual = colorItem;
-                        });
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: esElSeleccionado
-                                ? const Color(0xFF4A3423)
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: CircleAvatar(
-                          radius: 7,
-                          backgroundColor: _mapearColorHex(colorItem),
-                        ),
-                      ),
+            // Grid
+            Expanded(
+              child: FutureBuilder<List<dynamic>>(
+                future: _calzadosFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const Center(child: Text('Error al cargar'));
+                  }
+
+                  final listaFiltrada = _aplicarFiltros(snapshot.data!);
+
+                  if (listaFiltrada.isEmpty) {
+                    return const Center(
+                      child: Text('No se encontraron resultados'),
                     );
-                  }).toList(),
-                ),
+                  }
 
-                const SizedBox(height: 8),
-                Text(
-                  'Talla: $talla',
-                  style: const TextStyle(color: Colors.grey, fontSize: 11),
-                ),
-                const SizedBox(height: 6),
+                  Map<String, List<Map<String, dynamic>>> agrupados = {};
+                  for (var item in listaFiltrada) {
+                    final map = Map<String, dynamic>.from(item);
+                    final modelo = map['modelo']?.toString() ?? 'Sin modelo';
+                    agrupados.putIfAbsent(modelo, () => []).add(map);
+                  }
 
-                // Fila de precio y stock
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'S/. ${precio.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
+                  return Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.50,
+                          ),
+                      itemCount: agrupados.length,
+                      itemBuilder: (context, index) {
+                        final modelo = agrupados.keys.elementAt(index);
+                        return TarjetaCalzado(variantes: agrupados[modelo]!);
+                      },
                     ),
-                    Text(
-                      'Stk: $stock',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: bajoStock ? Colors.red : Colors.black87,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

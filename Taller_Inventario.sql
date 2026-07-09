@@ -224,16 +224,15 @@ GO
 
 
 
-
 -- =========================================================================
 -- 4. INSERCIÓN EN: Inventario.Calzado (Modelos y tallas para el catálogo)
 -- =========================================================================
-INSERT INTO Inventario.Calzado (CalzadoCodigo, CalzadoModelo, CalzadoTipo, CalzadoColor, CalzadoTalla, CalzadoStock, CalzadoPrecioVenta) VALUES
-	('ZAP00001', 'Bota Casual Ranger', 'bota', 'Marrón Cuero', 40, 15, 89.99),
-	('ZAP00002', 'Bota Casual Ranger', 'bota', 'Marrón Cuero', 41, 24, 89.99),
-	('ZAP00003', 'Mocasín Ejecutivo Premium', 'formal', 'Negro Brillante', 42, 8, 110.00),
-	('ZAP00004', 'Zapatilla Urbana Canvas', 'urbano', 'Blanco / Azul', 38, 4, 65.50);
-GO
+--INSERT INTO Inventario.Calzado (CalzadoCodigo, CalzadoModelo, CalzadoTipo, CalzadoColor, CalzadoTalla, CalzadoStock, CalzadoPrecioVenta) VALUES
+--	('ZAP00001', 'Bota Casual Ranger', 'bota', 'Marron ', 40, 15, 89.99),
+--	('ZAP00002', 'Bota Casual Ranger', 'bota', 'Marron ', 41, 24, 89.99),
+--	('ZAP00003', 'Mocasín Ejecutivo Premium', 'formal', 'Negro Brillante', 42, 8, 110.00),
+--	('ZAP00004', 'Zapatilla Urbana Canvas', 'urbano', 'Blanco', 38, 4, 65.50);
+--GO
 
 -- =========================================================================
 -- 5. INSERCIÓN EN: Inventario.TipoMovimiento
@@ -245,6 +244,12 @@ INSERT INTO Inventario.TipoMovimiento (TipoMovimientoCodigo, TipoMovimientoDescr
 	('S02', 'Salida por Venta de Producto', -1);
 GO
 
+IF NOT EXISTS (SELECT 1 FROM Inventario.TipoMovimiento WHERE TipoMovimientoCodigo = 'S03')
+BEGIN
+    INSERT INTO Inventario.TipoMovimiento (TipoMovimientoCodigo, TipoMovimientoDescripcion, TipoMovimientoFactor)
+    VALUES ('S03', 'Salida por Eliminación / Descarte de Taller', -1);
+END
+GO
 -- =========================================================================
 -- 6. INSERCIÓN EN: Inventario.HistorialMaterial (Actividad reciente)
 -- =========================================================================
@@ -298,14 +303,40 @@ BEGIN
 END
 GO
 
---Mostrar Actividad Reciente
 
-CREATE or ALTER PROCEDURE Inventario.USP_Dashboard_ListarActividadReciente
+--Mostrar Actividad Reciente
+-- Eliminar restricciones antiguas
+ALTER TABLE Inventario.HistorialMaterial DROP CONSTRAINT HistorialMaterialFechaCK;
+ALTER TABLE Inventario.HistorialMaterial DROP CONSTRAINT HistorialMaterialFechaDF;
+
+--Cambiar el tipo de dato a DATETIME
+ALTER TABLE Inventario.HistorialMaterial ALTER COLUMN HistorialMaterialFecha DATETIME;
+
+ALTER TABLE Inventario.HistorialMaterial ADD CONSTRAINT HistorialMaterialFechaDF DEFAULT GETDATE() FOR HistorialMaterialFecha;
+ALTER TABLE Inventario.HistorialMaterial ADD CONSTRAINT HistorialMaterialFechaCK CHECK (HistorialMaterialFecha <= GETDATE());
+GO
+
+-- Eliminar restricciones antiguas
+ALTER TABLE Inventario.HistorialCalzado DROP CONSTRAINT HistorialCalzadoFechaCK;
+ALTER TABLE Inventario.HistorialCalzado DROP CONSTRAINT HistorialCalzadoFechaDF;
+
+-- Cambiar el tipo de dato a DATETIME
+ALTER TABLE Inventario.HistorialCalzado ALTER COLUMN HistorialCalzadoFecha DATETIME;
+
+-- Volver a crear las restricciones para DATETIME
+ALTER TABLE Inventario.HistorialCalzado ADD CONSTRAINT HistorialCalzadoFechaDF DEFAULT GETDATE() FOR HistorialCalzadoFecha;
+ALTER TABLE Inventario.HistorialCalzado ADD CONSTRAINT HistorialCalzadoFechaCK CHECK (HistorialCalzadoFecha <= GETDATE());
+GO
+-- =========================================================================
+--  STORED PROCEDURE
+-- =========================================================================
+
+CREATE OR ALTER PROCEDURE Inventario.USP_Dashboard_ListarActividadReciente
 AS
 BEGIN
     SET NOCOUNT ON
 
-    SELECT TOP 5 
+    SELECT 
         Actividad.Fecha,
         Actividad.Tipo,
         Actividad.Descripcion,
@@ -314,7 +345,7 @@ BEGIN
         U.UsuarioNombre AS Encargado
     FROM 
     (
-        -- Movimientos de Materiales
+        --MOVIMIENTOS DE MATERIALES
         SELECT 
             HM.HistorialMaterialFecha AS Fecha,
             'Material' AS Tipo,
@@ -328,12 +359,19 @@ BEGIN
 
         UNION ALL
 
-        -- Movimientos de Calzado
+        --MOVIMIENTOS DE CALZADO 
         SELECT 
             HC.HistorialCalzadoFecha AS Fecha,
             'Calzado' AS Tipo,
-            C.CalzadoModelo + ' (Talla ' + CONVERT(NVARCHAR(3), C.CalzadoTalla) + ')' AS Descripcion,
-            CONVERT(NVARCHAR(20), HC.HistorialCalzadoCantidad) + ' Pares' AS Cantidad,
+            C.CalzadoModelo + ' (' + RTRIM(C.CalzadoColor) + ', Talla ' + CONVERT(NVARCHAR(3), C.CalzadoTalla) + ')' AS Descripcion,
+            
+            -- LÓGICA: Si es una salida por venta
+            CASE 
+                WHEN HC.TipoMovimientoCodigo = 'S02' 
+                THEN CONVERT(NVARCHAR(10), HC.HistorialCalzadoCantidad) + ' Pares (Subtotal: S/.' + CONVERT(NVARCHAR(20), CAST(HC.HistorialCalzadoCantidad * C.CalzadoPrecioVenta AS DECIMAL(10,2))) + ')'
+                ELSE CONVERT(NVARCHAR(20), HC.HistorialCalzadoCantidad) + ' Pares'
+            END AS Cantidad,
+            
             TM.TipoMovimientoDescripcion AS Movimiento,
             HC.UsuarioID
         FROM Inventario.HistorialCalzado HC
@@ -341,12 +379,13 @@ BEGIN
         INNER JOIN Inventario.TipoMovimiento TM ON HC.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
     ) AS Actividad
     INNER JOIN Seguridad.Usuario U ON Actividad.UsuarioID = U.UsuarioID
-    ORDER BY Actividad.Fecha DESC;
+    ORDER BY Actividad.Fecha DESC
 END
 GO
 
 --EXEC Inventario.USP_Dashboard_ObtenerResumen;
---EXEC Inventario.USP_Dashboard_ListarActividadReciente;
+EXEC Inventario.USP_Dashboard_ListarActividadReciente
+go
 
 
 --Mostrar INVENTARIO DE MATERIALES
@@ -401,7 +440,8 @@ CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_InsertarMaterial
     @MaterialCategoria NVARCHAR(50),
     @MaterialCantidad DECIMAL(10,2),
     @MaterialMedida NVARCHAR(20),
-    @MaterialProveedor NVARCHAR(100)
+    @MaterialProveedor NVARCHAR(100),
+    @UsuarioID NCHAR(8)
 AS
 BEGIN
     SET NOCOUNT ON
@@ -409,7 +449,10 @@ BEGIN
         BEGIN TRANSACTION
 
         DECLARE @CodigoExistente NCHAR(8)
+        DECLARE @CodigoFinal NCHAR(8)
+        DECLARE @AccionRealizada NVARCHAR(20)
 
+        -- Buscar si el material existe
         SELECT @CodigoExistente = MaterialCodigo 
         FROM Inventario.Material
         WHERE UPPER(RTRIM(MaterialNombre)) = UPPER(RTRIM(@MaterialNombre))
@@ -418,39 +461,64 @@ BEGIN
 
         IF @CodigoExistente IS NOT NULL
         BEGIN
+            -- CASO 1: SI EXISTE, SUMAMOS STOCK
             UPDATE Inventario.Material
             SET MaterialCantidad = MaterialCantidad + @MaterialCantidad,
                 MaterialProveedor = ISNULL(@MaterialProveedor, MaterialProveedor),
                 MaterialMedida = @MaterialMedida
             WHERE MaterialCodigo = @CodigoExistente;
 
-            COMMIT TRANSACTION;
-
-            SELECT @CodigoExistente AS CodigoResultado, 'ACCION_SUMAR' AS Accion;
+            SET @CodigoFinal = @CodigoExistente;
+            SET @AccionRealizada = 'ACCION_SUMAR';
         END
         ELSE
         BEGIN
-           
-            DECLARE @NuevoCodigo NCHAR(8);
+            -- CASO 2: ES NUEVO, GENERAMOS CÓDIGO E INSERTAMOS
             DECLARE @MaxId INT;
-
             SELECT @MaxId = ISNULL(MAX(CAST(SUBSTRING(MaterialCodigo, 4, 5) AS INT)), 0) 
             FROM Inventario.Material;
 
-            SET @NuevoCodigo = 'MAT' + RIGHT('00000' + CAST((@MaxId + 1) AS VARCHAR(5)), 5);
+            SET @CodigoFinal = 'MAT' + RIGHT('00000' + CAST((@MaxId + 1) AS VARCHAR(5)), 5);
 
             INSERT INTO Inventario.Material (
                 MaterialCodigo, MaterialNombre, MaterialCategoria, 
                 MaterialCantidad, MaterialMedida, MaterialProveedor, MaterialEstado
             )
             VALUES (
-                @NuevoCodigo, @MaterialNombre, @MaterialCategoria, 
+                @CodigoFinal, @MaterialNombre, @MaterialCategoria, 
                 @MaterialCantidad, @MaterialMedida, @MaterialProveedor, 'A'
             );
 
-            COMMIT TRANSACTION
-            SELECT @NuevoCodigo AS CodigoResultado, 'ACCION_CREAR' AS Accion;
+            SET @AccionRealizada = 'ACCION_CREAR';
         END
+
+        -- =========================================================================
+        -- REGISTRO EN EL HISTORIAL DE MOVIMIENTOS
+        -- =========================================================================
+        INSERT INTO Inventario.HistorialMaterial (
+            MaterialCodigo, 
+            TipoMovimientoCodigo, 
+            HistorialMaterialCantidad, 
+            UsuarioID, 
+            HistorialMaterialFecha,
+            HistorialMaterialNota
+        )
+        VALUES (
+            @CodigoFinal,
+            'E01',
+            @MaterialCantidad,
+            @UsuarioID,
+            GETDATE(),
+            CASE 
+                WHEN @AccionRealizada = 'ACCION_CREAR' THEN N'Ingreso inicial de nuevo material al taller.'
+                ELSE N'Abastecimiento de stock / Compra adicional.'
+            END
+        )
+
+        COMMIT TRANSACTION;
+
+        -- Retornamos la información 
+        SELECT @CodigoFinal AS CodigoResultado, @AccionRealizada AS Accion;
 
     END TRY
     BEGIN CATCH
@@ -490,10 +558,37 @@ GO
 --FROM Inventario.Material
 --WHERE MaterialCategoria = 'Herrajes / Ojales';
 
+--lISTAR MATERIALES 
+CREATE OR ALTER PROCEDURE Inventario.USP_Material_ListarParaDropdown
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        
+        SELECT 
+            RTRIM(MaterialCodigo) AS codigo,
+            RTRIM(MaterialNombre) AS nombre,
+            RTRIM(MaterialCategoria) AS categoria,
+            RTRIM(MaterialMedida) AS medida,
+            RTRIM(ISNULL(MaterialProveedor, '')) AS proveedor,
+            MaterialCantidad AS stockActual
+        FROM Inventario.Material
+        WHERE MaterialEstado = 'A'
+        ORDER BY MaterialNombre ASC
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END
+GO
+
+
+
 
 -- EDITAR MATERIAL 
-
-CREATE PROCEDURE Inventario.USP_Inventario_EditarMaterial
+CREATE or alter PROCEDURE Inventario.USP_Inventario_EditarMaterial
     @MaterialCodigo NCHAR(8),
     @MaterialNombre NVARCHAR(100),
     @MaterialCategoria NVARCHAR(50),
@@ -502,9 +597,9 @@ CREATE PROCEDURE Inventario.USP_Inventario_EditarMaterial
     @MaterialProveedor NVARCHAR(100)
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT ON
     BEGIN TRY
-        BEGIN TRANSACTION;
+        BEGIN TRANSACTION
 
         IF NOT EXISTS (SELECT 1 FROM Inventario.Material WHERE MaterialCodigo = @MaterialCodigo AND MaterialEstado = 'A')
         BEGIN
@@ -547,40 +642,66 @@ GO
 
 
 -- BORRAR MATERIAL
-
-CREATE PROCEDURE Inventario.USP_Inventario_EliminarMaterial
-    @MaterialCodigo NCHAR(8)
+CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_EliminarMaterial
+    @MaterialCodigo NCHAR(8),
+    @UsuarioID NCHAR(8)
 AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
-        BEGIN TRANSACTION        
+        BEGIN TRANSACTION;
+        
         IF NOT EXISTS (SELECT 1 FROM Inventario.Material WHERE MaterialCodigo = @MaterialCodigo AND MaterialEstado = 'A')
         BEGIN
-            RAISERROR('El material que intenta eliminar no existe o ya se encuentra inactivo.', 16, 1)
+            RAISERROR('El material que intenta eliminar no existe o ya se encuentra inactivo.', 16, 1);
         END
 
+        -- Cantidad que queda en stock antes de vaciarla
+        DECLARE @CantidadActual DECIMAL(10,2);
+        SELECT @CantidadActual = MaterialCantidad 
+        FROM Inventario.Material 
+        WHERE MaterialCodigo = @MaterialCodigo;
+
+        -- Cambiamos estado a 'E'
         UPDATE Inventario.Material
-        SET MaterialEstado = 'E'
-        WHERE MaterialCodigo = @MaterialCodigo
+        SET MaterialEstado = 'E',
+            MaterialCantidad = 0.00
+        WHERE MaterialCodigo = @MaterialCodigo;
+
+        INSERT INTO Inventario.HistorialMaterial (
+            MaterialCodigo, 
+            TipoMovimientoCodigo, 
+            HistorialMaterialCantidad, 
+            UsuarioID, 
+            HistorialMaterialFecha,
+            HistorialMaterialNota
+        )
+        VALUES (
+            @MaterialCodigo,
+            'S03', 
+            @CantidadActual,
+            @UsuarioID,
+            GETDATE(),
+            N'Material eliminado del taller.'
+        )
 
         COMMIT TRANSACTION;
 
-        SELECT 'EXITO' AS Resultado, 'Material eliminado correctamente.' AS Mensaje
+        SELECT 'EXITO' AS Resultado, 'Material eliminado correctamente.' AS Mensaje;
 
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION;
 
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
         RAISERROR(@ErrorMessage, 16, 1);
     END CATCH
 END
 GO
 
-
-CREATE PROCEDURE Inventario.USP_Inventario_ListarCalzado
+-- LISTAR EL CALZADO 
+CREATE or alter PROCEDURE Inventario.USP_Inventario_ListarCalzado
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -599,8 +720,253 @@ BEGIN
         END AS bajoStock
     FROM Inventario.Calzado
     WHERE CalzadoEstado = 'A'
-    ORDER BY CalzadoModelo ASC, CalzadoTalla DESC;
+    ORDER BY CalzadoModelo ASC, CalzadoTalla DESC
 END
 GO
 
 --EXEC Inventario.USP_Inventario_ListarCalzado;
+
+--INSERT INTO Inventario.Calzado 
+--(CalzadoCodigo, CalzadoModelo, CalzadoTipo, CalzadoColor, CalzadoTalla, CalzadoStock, CalzadoPrecioVenta) 
+--VALUES	
+--('ZAP00001', 'Bota Casual Ranger', 'bota', 'Marrón', 40, 15, 89.99),
+--('ZAP00002', 'Bota Casual Ranger', 'bota', 'Marrón', 41, 24, 89.99),
+--('ZAP00003', 'Bota Casual Ranger', 'bota', 'Negro', 39, 8, 89.99),
+--('ZAP00004', 'Bota Casual Ranger', 'bota', 'Negro', 42, 12, 89.99),
+--('ZAP00005', 'Mocasín Ejecutivo Premium', 'formal', 'Negro', 42, 8, 110.00),
+--('ZAP00006', 'Mocasín Ejecutivo Premium', 'formal', 'Negro', 40, 5, 110.00),
+--('ZAP00007', 'Mocasín Ejecutivo Premium', 'formal', 'Marrón', 41, 6, 115.00),
+--('ZAP00008', 'Zapatilla Urbana Canvas', 'urbano', 'Blanco', 38, 4, 65.50),
+--('ZAP00009', 'Zapatilla Urbana Canvas', 'urbano', 'Blanco', 39, 10, 65.50),
+--('ZAP00010', 'Zapatilla Urbana Canvas', 'urbano', 'Negro', 40, 15, 65.50),
+--('ZAP00011', 'Bota Militar', 'bota', 'Negro', 40, 15, 125.00),
+--('ZAP00012', 'Bota Militar', 'bota', 'Marrón', 41, 3, 125.00),
+--('ZAP00013', 'Stiletto Gala Leather', 'tacos', 'Negro', 36, 12, 140.00),
+--('ZAP00014', 'Stiletto Gala Leather', 'tacos', 'Blanco', 37, 2, 140.00),
+--('ZAP00015', 'Sandalia Verano Confort', 'sandalia', 'Marrón', 37, 20, 45.00),
+--('ZAP00016', 'Sandalia Verano Confort', 'sandalia', 'Blanco', 38, 14, 45.00),
+--('ZAP00017', 'Zapato Derby Clásico', 'formal', 'Negro', 41, 10, 95.00),
+--('ZAP00018', 'Zapato Derby Clásico', 'formal', 'Marrón', 42, 3, 98.00),
+--('ZAP00019', 'Zapatilla Runner Pro', 'deportivo', 'Gris', 41, 18, 135.00),
+--('ZAP00020', 'Zapatilla Runner Pro', 'deportivo', 'Azul', 42, 7, 135.00),
+--('ZAP00021', 'Botín Chelsea Nobuck', 'bota', 'Marrón', 40, 9, 150.00),
+--('ZAP00022', 'Botín Chelsea Nobuck', 'bota', 'Negro', 41, 11, 150.00),
+--('ZAP00023', 'Mocasín Driver Casual', 'urbano', 'Azul', 40, 14, 79.90),
+--('ZAP00024', 'Mocasín Driver Casual', 'urbano', 'Marrón', 39, 6, 79.90);
+--GO
+
+--- SP para registrar Registrar Venta: 
+
+CREATE OR ALTER PROCEDURE Inventario.USP_Calzado_RegistrarVenta
+    @CalzadoCodigo NCHAR(8),
+    @CantidadAVender INT,
+    @UsuarioID NCHAR(8)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY        
+        BEGIN TRANSACTION;
+        DECLARE @StockActual INT
+        DECLARE @Estado NCHAR(1)
+        SELECT @StockActual = CalzadoStock, @Estado = CalzadoEstado
+        FROM Inventario.Calzado WITH (UPDLOCK)
+        WHERE CalzadoCodigo = @CalzadoCodigo;
+
+        IF @StockActual IS NULL OR @Estado <> 'A'
+        BEGIN
+            RAISERROR('El calzado especificado no existe o está inactivo en el catálogo.', 16, 1)
+        END
+
+        IF @StockActual < @CantidadAVender
+        BEGIN
+            DECLARE @ErrorStock NVARCHAR(255)
+            SET @ErrorStock = N'Stock insuficiente para realizar la venta. Stock disponible: ' + CAST(@StockActual AS NVARCHAR(10)) + N' pares.';
+            RAISERROR(@ErrorStock, 16, 1)
+        END
+
+        --Descontar el stock del calzado
+        UPDATE Inventario.Calzado
+        SET CalzadoStock = CalzadoStock - @CantidadAVender
+        WHERE CalzadoCodigo = @CalzadoCodigo;
+
+        -- Registrar en el historial de calzado
+        INSERT INTO Inventario.HistorialCalzado (
+            CalzadoCodigo, 
+            TipoMovimientoCodigo, 
+            HistorialCalzadoCantidad, 
+            UsuarioID,
+            HistorialCalzadoFecha
+        )
+        VALUES (
+            @CalzadoCodigo, 
+            'S02',
+            @CantidadAVender, 
+            @UsuarioID,
+            GETDATE()
+        );
+
+        COMMIT TRANSACTION
+        SELECT 
+            'EXITO' AS Resultado, 
+            N'Venta registrada correctamente. Se descontaron ' + CAST(@CantidadAVender AS NVARCHAR(10)) + N' pares.' AS Mensaje;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        -- Capturamos el error
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END
+GO
+
+
+--EXEC Inventario.USP_Calzado_RegistrarVenta 
+--    @CalzadoCodigo = 'ZAP00003', 
+--    @CantidadAVender = 2, 
+--    @UsuarioID = 'USR00001'
+
+--EXEC Inventario.USP_Calzado_RegistrarVenta 
+--    @CalzadoCodigo = 'ZAP00001', 
+--    @CantidadAVender = 500, 
+--    @UsuarioID = 'USR00001'
+
+
+-- SP PARA LISTAR LOS ZAPATOS PARA LA VENTA
+
+CREATE OR ALTER PROCEDURE Inventario.USP_Calzado_ListarParaDropdown
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        
+        SELECT 
+            CalzadoCodigo AS codigo,
+            RTRIM(CalzadoModelo) AS modelo,
+            CalzadoTalla AS talla,
+            RTRIM(CalzadoColor) AS color,
+            CalzadoPrecioVenta AS precio,
+            CalzadoStock AS stock
+        FROM Inventario.Calzado
+        WHERE CalzadoEstado = 'A'
+        ORDER BY CalzadoModelo ASC, CalzadoTalla ASC;
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END
+GO
+
+---Creamos tablas para poder REALIZAR LA ACCIÓN DE NUEVO CALZADO
+
+--Tabla Fabricación general
+CREATE TABLE Inventario.OrdenProduccion (
+    OrdenID INT IDENTITY(1,1),
+    CalzadoCodigo NCHAR(8) NOT NULL,
+    CantidadPares INT NOT NULL,
+    OrdenFecha DATETIME CONSTRAINT OrdenFechaDF DEFAULT GETDATE(),
+    UsuarioID NCHAR(8) NOT NULL,
+    OrdenEstado NCHAR(1) CONSTRAINT OrdenEstadoDF DEFAULT 'A', -- 'A' Activo, 'E' Anulado
+    CONSTRAINT OrdenProduccionPK PRIMARY KEY (OrdenID),
+    CONSTRAINT OrdenProduccion_CalzadoFK FOREIGN KEY (CalzadoCodigo) REFERENCES Inventario.Calzado(CalzadoCodigo),
+    CONSTRAINT OrdenProduccion_UsuarioFK FOREIGN KEY (UsuarioID) REFERENCES Seguridad.Usuario(UsuarioID),
+    CONSTRAINT OrdenCantidadParesCK CHECK (CantidadPares > 0)
+) ON [Primary];
+GO
+
+-- Tabla Detalle
+CREATE TABLE Inventario.OrdenProduccionDetalle (
+    DetalleID BIGINT IDENTITY(1,1),
+    OrdenID INT NOT NULL,
+    MaterialCodigo NCHAR(8) NOT NULL,
+    CantidadConsumida DECIMAL(10,2) NOT NULL, 
+    CONSTRAINT OrdenProduccionDetallePK PRIMARY KEY (DetalleID),
+    CONSTRAINT Detalle_OrdenFK FOREIGN KEY (OrdenID) REFERENCES Inventario.OrdenProduccion(OrdenID),
+    CONSTRAINT Detalle_MaterialFK FOREIGN KEY (MaterialCodigo) REFERENCES Inventario.Material(MaterialCodigo),
+    CONSTRAINT DetalleCantidadConsumidaCK CHECK (CantidadConsumida > 0)
+) ON [Primary];
+GO
+
+-- SP para PODER REGISTRAR EL CALZADO NUEVO
+
+CREATE OR ALTER PROCEDURE Inventario.USP_ProduccionCalzado_Registrar
+    @CalzadoCodigo NCHAR(8),
+    @CantidadPares INT,
+    @UsuarioID NCHAR(8),
+    @MaterialesJSON NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON
+    BEGIN TRY
+        BEGIN TRANSACTION
+
+        DECLARE @NuevaOrdenID INT
+        
+        INSERT INTO Inventario.OrdenProduccion (CalzadoCodigo, CantidadPares, UsuarioID)
+        VALUES (@CalzadoCodigo, @CantidadPares, @UsuarioID)
+        
+        SET @NuevaOrdenID = SCOPE_IDENTITY()
+
+        -- Insertar el detalle de materiales consumidos
+        INSERT INTO Inventario.OrdenProduccionDetalle (OrdenID, MaterialCodigo, CantidadConsumida)
+        SELECT 
+            @NuevaOrdenID,
+            j.codigo,
+            (j.cantidadPorPar * @CantidadPares)
+        FROM OPENJSON(@MaterialesJSON)
+        WITH (
+            codigo NCHAR(8) '$.codigo',
+            cantidadPorPar DECIMAL(10,2) '$.cantidadPorPar'
+        ) AS j
+
+        --DESCONTAR EL STOCK DE LOS MATERIALES
+        UPDATE m
+        SET m.MaterialCantidad = m.MaterialCantidad - (j.cantidadPorPar * @CantidadPares)
+        FROM Inventario.Material m
+        INNER JOIN OPENJSON(@MaterialesJSON)
+        WITH (
+            codigo NCHAR(8) '$.codigo',
+            cantidadPorPar DECIMAL(10,2) '$.cantidadPorPar'
+        ) AS j ON m.MaterialCodigo = j.codigo
+
+        --AUMENTAR EL STOCK DEL CALZADO TERMINADO 
+        UPDATE Inventario.Calzado
+        SET CalzadoStock = CalzadoStock + @CantidadPares
+        WHERE CalzadoCodigo = @CalzadoCodigo
+
+        --HISTORIAL CALZADO: Tipo 'E02' (Entrada por Producción Terminada según tu tabla TipoMovimiento)
+        INSERT INTO Inventario.HistorialCalzado (CalzadoCodigo, TipoMovimientoCodigo, HistorialCalzadoCantidad, UsuarioID, HistorialCalzadoFecha)
+        VALUES (@CalzadoCodigo, 'E02', @CantidadPares, @UsuarioID, GETDATE());
+
+        --HISTORIAL MATERIALES: Tipo 'S01' (Salida por Consumo de Taller según tu tabla TipoMovimiento)
+        INSERT INTO Inventario.HistorialMaterial (MaterialCodigo, TipoMovimientoCodigo, HistorialMaterialCantidad, UsuarioID, HistorialMaterialFecha, HistorialMaterialNota)
+        SELECT 
+            j.codigo,
+            'S01',
+            (j.cantidadPorPar * @CantidadPares),
+            @UsuarioID,
+            GETDATE(),
+            N'Consumo por Producción de Calzado - Orden #' + CAST(@NuevaOrdenID AS NVARCHAR(10))
+        FROM OPENJSON(@MaterialesJSON)
+        WITH (
+            codigo NCHAR(8) '$.codigo',
+            cantidadPorPar DECIMAL(10,2) '$.cantidadPorPar'
+        ) AS j
+
+        COMMIT TRANSACTION
+        SELECT 'EXITO' AS Resultado, N'Producción e historiales guardados con éxito. Orden #' + CAST(@NuevaOrdenID AS NVARCHAR(10)) AS Mensaje;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
+        RAISERROR(@ErrorMessage, 16, 1)
+    END CATCH
+END
+GO
+
+
+

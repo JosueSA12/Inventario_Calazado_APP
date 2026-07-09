@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:pandabar/pandabar.dart';
 
@@ -7,6 +9,7 @@ import 'package:inventario/formularios/formulario_resgistrar_calzado.dart';
 import 'package:inventario/formularios/formulario_registrar_material.dart';
 import 'package:inventario/screens/alertas_stock_view.dart';
 import 'package:inventario/screens/calzado_view.dart';
+import 'package:inventario/formularios/formulario_registrar_venta.dart';
 
 import 'core/theme/app_colors.dart';
 
@@ -20,73 +23,131 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   String page = 'Dashboard';
 
+  Widget _buildOptionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color backgroundColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade100, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 26),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _mostrarOpcionesDeRegistro(BuildContext context) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
+      elevation: 0,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
+          padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 36.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Indicador superior táctil (Pill)
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 20),
               const Text(
-                '¿Qué deseas registrar hoy?',
+                '¿Qué deseas gestionar hoy?',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
+                  letterSpacing: -0.5,
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Opción: Nuevo Calzado
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.categoriaEstiloFondo,
-                  child: Icon(
-                    Icons.shopping_bag_rounded,
-                    color: AppColors.categoriaEstiloIcono,
-                  ),
-                ),
-                title: const Text(
-                  'Nuevo Calzado',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                onTap: () {
+              // Opción: Nueva Orden de Producción / Calzado
+              _buildOptionCard(
+                title: 'Lote de Producción',
+                subtitle: 'Registrar fabricación de calzado y consumo',
+                icon: Icons.precision_manufacturing_rounded,
+                iconColor: AppColors.categoriaEstiloIcono,
+                backgroundColor: AppColors.categoriaEstiloFondo,
+                onTap: () async {
                   Navigator.pop(context);
-                  Navigator.push(
+                  final resultado = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const FormularioCalzado(),
+                      builder: (context) => const FormularioProduccionCalzado(),
                     ),
                   );
+                  if (resultado == true) setState(() {});
                 },
               ),
-              const Divider(color: Color(0xFFEFECE9)),
+              const SizedBox(height: 12),
 
               // Opción: Nuevo Material
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.categoriaMaterialFondo,
-                  child: Icon(
-                    Icons.layers_rounded,
-                    color: AppColors.categoriaMaterialIcono,
-                  ),
-                ),
-                title: const Text(
-                  'Nueva Materia Prima / Insumo',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
+              _buildOptionCard(
+                title: 'Materia Prima / Insumo',
+                subtitle: 'Ingresar cuero, suelas, hilos o pegamentos',
+                icon: Icons.layers_rounded,
+                iconColor: AppColors.categoriaMaterialIcono,
+                backgroundColor: AppColors.categoriaMaterialFondo,
                 onTap: () async {
                   Navigator.pop(context);
                   final resultado = await Navigator.push(
@@ -95,38 +156,27 @@ class _HomeState extends State<Home> {
                       builder: (context) => const FormularioMaterial(),
                     ),
                   );
-
-                  if (resultado == true && page == 'Materiales') {
-                    setState(() {});
-                  }
+                  if (resultado == true) setState(() {});
                 },
               ),
-              const Divider(color: Color(0xFFEFECE9)),
+              const SizedBox(height: 12),
 
               // Opción: Registrar Venta
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: AppColors.salidaFondo,
-                  child: Icon(
-                    Icons.monetization_on_rounded,
-                    color: AppColors.salidaTexto,
-                  ),
-                ),
-                title: const Text(
-                  'Registrar Venta',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                onTap: () {
+              _buildOptionCard(
+                title: 'Registrar Venta',
+                subtitle: 'Salida de calzado terminado',
+                icon: Icons.monetization_on_rounded,
+                iconColor: AppColors.salidaTexto,
+                backgroundColor: AppColors.salidaFondo,
+                onTap: () async {
                   Navigator.pop(context);
-                  Navigator.push(
+                  final resultado = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const FormularioCalzado(),
+                      builder: (context) => const FormularioRegistrarVenta(),
                     ),
                   );
+                  if (resultado == true) setState(() {});
                 },
               ),
             ],
@@ -143,12 +193,11 @@ class _HomeState extends State<Home> {
       backgroundColor: AppColors.background,
       bottomNavigationBar: PandaBar(
         backgroundColor: AppColors.surface,
-        // Mantienes tus colores llamativos para el botón de acción principal
-        fabColors: const [Color(0xFF01B327), Color(0xFF01C753)],
-        fabIcon: const Icon(Icons.add, color: Colors.white, size: 28),
+        fabColors: const [Color(0xFF829F82), Color(0xFF6E8B6E)],
+        fabIcon: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
 
-        //ActiveColor: AppColors.primary,
-        //unselectedColor: AppColors.textLight,
+        buttonSelectedColor: const Color(0xFF3D2B1F),
+
         buttonData: [
           PandaBarButtonData(
             id: 'Dashboard',
@@ -162,7 +211,7 @@ class _HomeState extends State<Home> {
           ),
           PandaBarButtonData(
             id: 'Materiales',
-            icon: Icons.layers_rounded,
+            icon: Icons.inventory_2_rounded,
             title: 'Materiales',
           ),
           PandaBarButtonData(
@@ -180,21 +229,28 @@ class _HomeState extends State<Home> {
           _mostrarOpcionesDeRegistro(context);
         },
       ),
-      body: Builder(
-        builder: (context) {
-          switch (page) {
-            case 'Dashboard':
-              return const DashboardInicio();
-            case 'Zapatos':
-              return const CalzadosView();
-            case 'Materiales':
-              return const MaterialesView();
-            case 'Alertas':
-              return const AlertasStockView();
-            default:
-              return const Center(child: Text('Página no encontrada'));
-          }
-        },
+      body: SafeArea(
+        bottom: false,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Builder(
+            key: ValueKey<String>(page),
+            builder: (context) {
+              switch (page) {
+                case 'Dashboard':
+                  return const DashboardInicio();
+                case 'Zapatos':
+                  return const CalzadosView();
+                case 'Materiales':
+                  return const MaterialesView();
+                case 'Alertas':
+                  return const AlertasStockView();
+                default:
+                  return const Center(child: Text('Página no encontrada'));
+              }
+            },
+          ),
+        ),
       ),
     );
   }

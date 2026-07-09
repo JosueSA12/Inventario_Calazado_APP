@@ -33,6 +33,7 @@ class _DashboardInicioState extends State<DashboardInicio> {
     _actividadFuture = obtenerActividad();
   }
 
+  // Función para obtener el resumen desde la API
   Future<Map<String, dynamic>> obtenerResumen() async {
     try {
       final response = await http.get(Uri.parse(urlResumen));
@@ -72,7 +73,7 @@ class _DashboardInicioState extends State<DashboardInicio> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 28),
+            icon: const Icon(Icons.home, size: 28),
             color: AppColors.primary,
             onPressed: () => setState(() => _cargarDatos()),
           ),
@@ -212,7 +213,7 @@ class _DashboardInicioState extends State<DashboardInicio> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(30),
           ),
           child: const Text(
@@ -232,23 +233,89 @@ class _DashboardInicioState extends State<DashboardInicio> {
   Widget _buildItemMovimiento(BuildContext context, dynamic item) {
     final bool esMaterial = item['Tipo'] == 'Material';
 
-    final bool esSalida = item['Movimiento'].toString().toLowerCase().contains(
-      'salida',
-    );
+    final String movimientoTexto = (item['Movimiento'] ?? '')
+        .toString()
+        .toLowerCase();
+
+    // Identificación precisa del tipo de movimiento
+    final bool esVenta = movimientoTexto.contains('venta');
+    final bool esEliminado =
+        movimientoTexto.contains('eliminad') ||
+        movimientoTexto.contains('descarte');
+    final bool esConsumoTaller =
+        movimientoTexto.contains('consumo') ||
+        movimientoTexto.contains('taller');
+    final bool esIngresoOAbastecimiento =
+        movimientoTexto.contains('ingreso') ||
+        movimientoTexto.contains('abastecimiento') ||
+        movimientoTexto.contains('compra');
+    final bool esProduccionTerminada =
+        movimientoTexto.contains('producción') ||
+        movimientoTexto.contains('terminad');
+
+    // ICONO
+    IconData iconoLeading;
+    Color colorIcono;
+    Color colorFondoIcono;
+
+    //ASIGNACIÓN DE ICONO
+    if (esVenta) {
+      iconoLeading = Icons.monetization_on_rounded;
+      colorIcono = const Color(0xFF2E7D32);
+      colorFondoIcono = const Color(0xFFE8F5E9);
+    } else if (esEliminado) {
+      iconoLeading = Icons.delete_forever_rounded;
+      colorIcono = const Color(0xFFC62828);
+      colorFondoIcono = const Color(0xFFFFEBEE);
+    } else if (esConsumoTaller) {
+      iconoLeading = Icons.build_circle_rounded;
+      colorIcono = const Color(0xFFEF6C00);
+      colorFondoIcono = const Color(0xFFFFF3E0);
+    } else if (esIngresoOAbastecimiento) {
+      iconoLeading = Icons.input_rounded;
+      colorIcono = const Color(0xFF1565C0);
+      colorFondoIcono = const Color(0xFFE3F2FD);
+    } else if (esProduccionTerminada) {
+      iconoLeading = Icons.check_circle_rounded;
+      colorIcono = const Color(0xFF6A1B9A);
+      colorFondoIcono = const Color(0xFFF3E5F5);
+    } else {
+      iconoLeading = esMaterial
+          ? Icons.inventory_2_rounded
+          : Icons.style_rounded;
+      colorIcono = Colors.grey.shade700;
+      colorFondoIcono = Colors.grey.shade200;
+    }
+
+    Color colorFondoBadge;
+    Color colorTextoBadge;
+
+    if (esVenta) {
+      colorFondoBadge = const Color(0xFFE8F5E9);
+      colorTextoBadge = const Color(0xFF2E7D32);
+    } else if (esEliminado || movimientoTexto.contains('salida')) {
+      colorFondoBadge = AppColors.salidaFondo;
+      colorTextoBadge = AppColors.salidaTexto;
+    } else {
+      colorFondoBadge = AppColors.entradaFondo;
+      colorTextoBadge = AppColors.entradaTexto;
+    }
 
     return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           showModalBottomSheet(
             context: context,
@@ -264,41 +331,79 @@ class _DashboardInicioState extends State<DashboardInicio> {
             ),
           );
         },
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: esMaterial
-                ? AppColors.categoriaMaterialFondo
-                : AppColors.categoriaEstiloFondo,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            esMaterial ? Icons.inventory_2_rounded : Icons.style_rounded,
-            color: esMaterial
-                ? AppColors.categoriaMaterialIcono
-                : AppColors.categoriaEstiloIcono,
-            size: 24,
-          ),
-        ),
-        title: Text(
-          item['Descripcion'] ?? 'Sin descripción',
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.5),
-        ),
-        subtitle: Text('${item['Movimiento']} • ${item['Encargado']}'),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: esSalida ? AppColors.salidaFondo : AppColors.entradaFondo,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            item['Cantidad']?.toString() ?? '0',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: esSalida ? AppColors.salidaTexto : AppColors.entradaTexto,
-            ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorFondoIcono,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(iconoLeading, color: colorIcono, size: 24),
+              ),
+              const SizedBox(width: 14),
+
+              // 2. TEXTOS EN COLUMNA (Centro)
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item['Descripcion'] ?? 'Sin descripción',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: AppColors.textDark,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${item['Movimiento']} • ${item['Encargado']}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // (Derecha)
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorFondoBadge,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    item['Cantidad']?.toString() ?? '0',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: colorTextoBadge,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

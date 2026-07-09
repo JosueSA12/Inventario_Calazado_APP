@@ -14,10 +14,10 @@ class AlertaCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.kpiAlertas.withOpacity(0.12)),
+        border: Border.all(color: AppColors.kpiAlertas.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.kpiAlertas.withOpacity(0.03),
+            color: AppColors.kpiAlertas.withValues(alpha: 0.03),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -33,7 +33,7 @@ class AlertaCard extends StatelessWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: AppColors.kpiAlertas.withOpacity(0.1),
+                  backgroundColor: AppColors.kpiAlertas.withValues(alpha: 0.1),
                   child: const Icon(
                     Icons.trending_down_rounded,
                     color: AppColors.kpiAlertas,

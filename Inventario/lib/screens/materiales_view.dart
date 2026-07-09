@@ -137,9 +137,9 @@ class _MaterialesViewState extends State<MaterialesView> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.sync),
             color: AppColors.primary,
-            onPressed: _refrescarLista, // ← Corregido
+            onPressed: _refrescarLista,
           ),
         ],
       ),
@@ -187,6 +187,7 @@ class _MaterialesViewState extends State<MaterialesView> {
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(12),
+                      // ignore: deprecated_member_use
                       border: Border.all(color: Colors.grey.withOpacity(0.2)),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -238,12 +239,14 @@ class _MaterialesViewState extends State<MaterialesView> {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
+                  padding: const EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 12,
+                    bottom: 90,
                   ),
                   itemCount: materiales.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final material = materiales[index];
                     return MaterialCard(

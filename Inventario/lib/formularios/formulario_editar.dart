@@ -157,7 +157,7 @@ class _FormularioEditarState extends State<FormularioEditar> {
                 const SizedBox(height: 20),
 
                 DropdownButtonFormField<String>(
-                  value: _categoriaSeleccionada,
+                  initialValue: _categoriaSeleccionada,
                   decoration: InputDecoration(
                     labelText: 'Categoría',
                     border: OutlineInputBorder(
@@ -201,7 +201,7 @@ class _FormularioEditarState extends State<FormularioEditar> {
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField<String>(
-                        value: _unidadSeleccionada,
+                        initialValue: _unidadSeleccionada,
                         decoration: InputDecoration(
                           labelText: 'Unidad',
                           border: OutlineInputBorder(

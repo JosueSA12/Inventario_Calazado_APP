@@ -7,7 +7,6 @@ class AppTheme {
     return FlexThemeData.light(
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
-        background: AppColors.background,
         surface: AppColors.surface,
       ),
       useMaterial3: true,
@@ -22,7 +21,6 @@ class AppTheme {
     return FlexThemeData.dark(
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
-        background: Color(0xFF1A1613),
         surface: Color(0xFF25201C),
       ),
       useMaterial3: true,

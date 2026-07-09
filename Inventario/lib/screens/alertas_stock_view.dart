@@ -1,14 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-import 'package:inventario/core/theme/app_colors.dart';
+import "package:flutter/material.dart";
+import "package:http/http.dart" as http;
+import "dart:convert";
+import "package:inventario/core/theme/app_colors.dart";
 
 // Imports
-import 'package:inventario/clases/alerta_material.dart';
-import 'package:inventario/core/widgets/alerta_card.dart';
-import 'package:inventario/core/widgets/empty_alertas_state.dart';
-import 'package:inventario/core/widgets/detalle_material_sheet.dart';
+import "package:inventario/clases/alerta_material.dart";
+import "package:inventario/core/widgets/alerta_card.dart";
+import "package:inventario/core/widgets/empty_alertas_state.dart";
+import "package:inventario/core/widgets/detalle_material_sheet.dart";
+import "package:inventario/formularios/formulario_registrar_material.dart";
 
 class AlertasStockView extends StatefulWidget {
   const AlertasStockView({super.key});
@@ -18,13 +18,13 @@ class AlertasStockView extends StatefulWidget {
 }
 
 class _AlertasStockViewState extends State<AlertasStockView> {
-  final String urlAlertas = 'http://10.0.2.2:3000/api/materiales/alertas';
+  final String urlAlertas = "http://10.0.2.2:3000/api/materiales/alertas";
   late Future<List<AlertaMaterial>> _alertasFuture;
 
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
+  String _searchQuery = "";
   String? _categoriaSeleccionada;
-  bool _ordenAscendente = true;
+  final bool _ordenAscendente = true;
 
   @override
   void initState() {
@@ -54,10 +54,10 @@ class _AlertasStockViewState extends State<AlertasStockView> {
         final List<dynamic> data = json.decode(response.body);
         return data.map((json) => AlertaMaterial.fromJson(json)).toList();
       } else {
-        throw Exception('Error del servidor: ${response.statusCode}');
+        throw Exception("Error del servidor: ${response.statusCode}");
       }
     } catch (e) {
-      throw Exception('No se pudo conectar: $e');
+      throw Exception("No se pudo conectar: $e");
     }
   }
 
@@ -88,7 +88,7 @@ class _AlertasStockViewState extends State<AlertasStockView> {
     return resultado;
   }
 
-  //Mostrar detalle del material con bajo stock
+  // Mostrar detalle del material con bajo stock e ir al formulario prellenado
   void _mostrarDetalleMaterial(BuildContext context, AlertaMaterial material) {
     showModalBottomSheet(
       context: context,
@@ -101,7 +101,27 @@ class _AlertasStockViewState extends State<AlertasStockView> {
         cantidad: material.cantidad,
         medida: material.medida,
         proveedor: material.proveedor,
-        onOrdenarMas: () => Navigator.pop(context),
+        onOrdenarMas: () async {
+          Navigator.pop(context);
+
+          final seAbastecio = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FormularioMaterial(
+                materialInicial: {
+                  'codigo': material.codigo,
+                  'nombre': material.insumo,
+                  'categoria': material.categoria,
+                  'medida': material.medida,
+                  'proveedor': material.proveedor,
+                },
+              ),
+            ),
+          );
+          if (seAbastecio == true) {
+            _refrescarAlertas();
+          }
+        },
       ),
     );
   }
@@ -113,11 +133,13 @@ class _AlertasStockViewState extends State<AlertasStockView> {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.kpiAlertas),
             SizedBox(width: 8),
-            Text(
-              'Alertas de Abastecimiento',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                "Alertas de Abastecimiento",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -125,7 +147,7 @@ class _AlertasStockViewState extends State<AlertasStockView> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.autorenew_rounded),
             color: AppColors.primary,
             onPressed: _refrescarAlertas,
           ),
@@ -154,14 +176,14 @@ class _AlertasStockViewState extends State<AlertasStockView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '${snapshot.error}'.replaceAll('Exception: ', ''),
+                      "${snapshot.error}".replaceAll("Exception: ", ""),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: _refrescarAlertas,
                       icon: const Icon(Icons.replay),
-                      label: const Text('Reintentar'),
+                      label: const Text("Reintentar"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.kpiAlertas,
                       ),
@@ -184,14 +206,14 @@ class _AlertasStockViewState extends State<AlertasStockView> {
                   controller: _searchController,
                   onChanged: (value) => setState(() => _searchQuery = value),
                   decoration: InputDecoration(
-                    hintText: 'Buscar insumo / material',
+                    hintText: "Buscar insumo / material",
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _searchController.clear();
-                              setState(() => _searchQuery = '');
+                              setState(() => _searchQuery = "");
                             },
                           )
                         : null,
@@ -222,6 +244,7 @@ class _AlertasStockViewState extends State<AlertasStockView> {
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
+                            // ignore: deprecated_member_use
                             color: Colors.grey.withOpacity(0.2),
                           ),
                         ),
@@ -243,7 +266,7 @@ class _AlertasStockViewState extends State<AlertasStockView> {
                                   value: cat,
                                   child: Text(cat),
                                 );
-                              }).toList(),
+                              }),
                             ],
                             onChanged: (String? newValue) {
                               setState(() => _categoriaSeleccionada = newValue);
@@ -266,12 +289,14 @@ class _AlertasStockViewState extends State<AlertasStockView> {
                   child: alertasFiltradas.isEmpty
                       ? const EmptyAlertasState()
                       : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
+                          padding: const EdgeInsets.only(
+                            left: 20,
+                            right: 20,
+                            top: 12,
+                            bottom: 90,
                           ),
                           itemCount: alertasFiltradas.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             return AlertaCard(

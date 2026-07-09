@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert'; // <-- ¡1. IMPORTACIÓN OBLIGATORIA PARA EL jsonEncode!
 
 import 'package:inventario/core/theme/app_colors.dart';
 
@@ -19,6 +20,7 @@ class DialogoEliminar extends StatefulWidget {
 
 class _DialogoEliminarState extends State<DialogoEliminar> {
   bool _estaCargando = false;
+
   // Método para eliminar el material
   Future<void> _eliminarMaterial() async {
     setState(() => _estaCargando = true);
@@ -27,7 +29,14 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
         'http://10.0.2.2:3000/api/materiales/${widget.codigo}';
 
     try {
-      final response = await http.delete(Uri.parse(urlApi));
+      // Usamos http.Request
+      final request = http.Request('DELETE', Uri.parse(urlApi));
+      request.headers.addAll({"Content-Type": "application/json"});
+      request.body = jsonEncode({"usuarioID": "USR00001"});
+
+      // Enviamos la petición de forma asíncrona
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         if (mounted) Navigator.pop(context, true);
@@ -65,7 +74,7 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.kpiAlertas.withOpacity(0.1),
+              color: AppColors.kpiAlertas.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -82,7 +91,7 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
         ],
       ),
       content: Text(
-        '¿Estás seguro de que deseas eliminar el material "${widget.nombre}"?\n\nEsta acción no se puede deshacer.',
+        '¿Estás seguro de que deseas eliminar el material "${widget.nombre}"?\n\nEsta acción registrará la salida del stock restante en el historial.',
         style: TextStyle(color: AppColors.textDark, fontSize: 15, height: 1.5),
       ),
       actions: [

@@ -25,11 +25,11 @@ class MaterialCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: bajoStock
-            ? Border.all(color: AppColors.kpiAlertas.withOpacity(0.25))
+            ? Border.all(color: AppColors.kpiAlertas.withValues(alpha: 0.25))
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -48,8 +48,8 @@ class MaterialCard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: bajoStock
-                        ? AppColors.kpiAlertas.withOpacity(0.1)
-                        : AppColors.primary.withOpacity(0.1),
+                        ? AppColors.kpiAlertas.withValues(alpha: 0.1)
+                        : AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
