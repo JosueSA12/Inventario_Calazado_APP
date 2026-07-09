@@ -5,7 +5,7 @@ USE master;
 GO
 
 IF EXISTS (SELECT name FROM sys.databases WHERE name = N'DB_TallerCalzado')
-    DROP DATABASE DB_TallerCalzado;
+    DROP DATABASE DB_TallerCalzado
 GO
 
 CREATE DATABASE DB_TallerCalzado
@@ -821,6 +821,8 @@ BEGIN
 END
 GO
 
+--select * from Inventario.TipoMovimiento
+
 
 --EXEC Inventario.USP_Calzado_RegistrarVenta 
 --    @CalzadoCodigo = 'ZAP00003', 
@@ -970,3 +972,4 @@ GO
 
 
 
+select * from Inventario.HistorialCalzado
