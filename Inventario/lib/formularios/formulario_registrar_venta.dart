@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import "package:flutter/material.dart";
+import "package:http/http.dart" as http;
+import "dart:convert";
 
-import 'package:inventario/core/theme/app_colors.dart';
+import "package:inventario/core/theme/app_colors.dart";
 
 class FormularioRegistrarVenta extends StatefulWidget {
   const FormularioRegistrarVenta({super.key});
@@ -46,17 +46,17 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
 
   // Cargar datos iniciales
   Future<void> _cargarCatalogo() async {
-    final String urlApi = 'http://10.0.2.2:3000/api/calzado/lista-dropdown';
+    final String urlApi = "http://10.0.2.2:3000/api/calzado/lista-dropdown";
     try {
       final response = await http.get(Uri.parse(urlApi));
       if (response.statusCode == 200) {
         final respuestaJson = jsonDecode(response.body);
-        _catalogoCompleto = respuestaJson['data'];
+        _catalogoCompleto = respuestaJson["data"];
 
         // Extraer modelos únicos y ordenarlos
         _modelosDisponibles =
             _catalogoCompleto
-                .map((item) => item['modelo'].toString())
+                .map((item) => item["modelo"].toString())
                 .toSet()
                 .toList()
               ..sort();
@@ -68,7 +68,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
     } catch (e) {
       setState(() => _cargandoCatalogo = false);
       _mostrarSnackBar(
-        'Error al conectar con el catálogo.',
+        "Error al conectar con el catálogo.",
         AppColors.kpiAlertas,
       );
     }
@@ -86,8 +86,8 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
       if (nuevoModelo != null) {
         _tallasDisponibles =
             _catalogoCompleto
-                .where((item) => item['modelo'] == nuevoModelo)
-                .map((item) => int.parse(item['talla'].toString()))
+                .where((item) => item["modelo"] == nuevoModelo)
+                .map((item) => int.parse(item["talla"].toString()))
                 .toSet()
                 .toList()
               ..sort();
@@ -107,10 +107,10 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
             _catalogoCompleto
                 .where(
                   (item) =>
-                      item['modelo'] == _modeloSeleccionado &&
-                      item['talla'] == nuevaTalla,
+                      item["modelo"] == _modeloSeleccionado &&
+                      item["talla"] == nuevaTalla,
                 )
-                .map((item) => item['color'].toString())
+                .map((item) => item["color"].toString())
                 .toSet()
                 .toList()
               ..sort();
@@ -125,9 +125,9 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
       if (nuevoColor != null) {
         _calzadoFinal = _catalogoCompleto.firstWhere(
           (item) =>
-              item['modelo'] == _modeloSeleccionado &&
-              item['talla'] == _tallaSeleccionada &&
-              item['color'] == nuevoColor,
+              item["modelo"] == _modeloSeleccionado &&
+              item["talla"] == _tallaSeleccionada &&
+              item["color"] == nuevoColor,
         );
       } else {
         _calzadoFinal = null;
@@ -139,7 +139,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
   void _agregarAlCarrito() {
     if (_calzadoFinal == null) {
       _mostrarSnackBar(
-        'Completa todos los filtros del calzado.',
+        "Completa todos los filtros del calzado.",
         Colors.orange,
       );
       return;
@@ -147,16 +147,16 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
 
     final int? cantidad = int.tryParse(_cantidadController.text);
     if (cantidad == null || cantidad <= 0) {
-      _mostrarSnackBar('Ingresa una cantidad válida.', Colors.orange);
+      _mostrarSnackBar("Ingresa una cantidad válida.", Colors.orange);
       return;
     }
 
-    final double precio = double.parse(_calzadoFinal!['precio'].toString());
-    final int stockDisponible = _calzadoFinal!['stock'];
+    final double precio = double.parse(_calzadoFinal!["precio"].toString());
+    final int stockDisponible = _calzadoFinal!["stock"];
 
     if (cantidad > stockDisponible) {
       _mostrarSnackBar(
-        'Stock insuficiente en tienda. Disponible: $stockDisponible pares.',
+        "Stock insuficiente en tienda. Disponible: $stockDisponible pares.",
         AppColors.kpiAlertas,
       );
       return;
@@ -164,7 +164,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
 
     setState(() {
       _carrito.add({
-        "calzadoCodigo": _calzadoFinal!['codigo'],
+        "calzadoCodigo": _calzadoFinal!["codigo"],
         "descripcion":
             "$_modeloSeleccionado (Talla $_tallaSeleccionada - $_colorSeleccionado)",
         "cantidad": cantidad,
@@ -185,12 +185,13 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
 
   // Calcular el Monto Total de la Venta
   double get _montoTotalVenta {
-    return _carrito.fold(0.0, (suma, item) => suma + item['subtotal']);
+    return _carrito.fold(0.0, (suma, item) => suma + item["subtotal"]);
   }
 
+  //Método para enviar la venta a la BD
   Future<void> _enviarVenta() async {
     setState(() => _estaCargando = true);
-    final String urlApi = 'http://10.0.2.2:3000/api/calzado/venta-multiple';
+    final String urlApi = "http://10.0.2.2:3000/api/calzado/venta-multiple";
 
     try {
       final response = await http.post(
@@ -213,16 +214,16 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
 
       if (response.statusCode == 200) {
         if (mounted) {
-          _mostrarSnackBar('Venta procesada con éxito.', Colors.green.shade700);
+          _mostrarSnackBar("Venta procesada con éxito.", Colors.green.shade700);
           Navigator.pop(context, true);
         }
       } else {
-        throw Exception(respuestaJson['mensaje']);
+        throw Exception(respuestaJson["mensaje"]);
       }
     } catch (e) {
       if (mounted) {
         _mostrarSnackBar(
-          e.toString().replaceAll('Exception:', '').trim(),
+          e.toString().replaceAll("Exception:", "").trim(),
           AppColors.kpiAlertas,
         );
       }
@@ -247,7 +248,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
-          'Registrar Nueva Venta',
+          "Registrar Nueva Venta",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: AppColors.surface,
@@ -275,7 +276,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                           // Dropdown: MODELO
                           DropdownButtonFormField<String>(
                             initialValue: _modeloSeleccionado,
-                            hint: const Text('1. Seleccionar Modelo'),
+                            hint: const Text("1. Seleccionar Modelo"),
                             items: _modelosDisponibles
                                 .map(
                                   (m) => DropdownMenuItem(
@@ -297,7 +298,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                           //TALLA (Habilitado solo si hay modelo)
                           DropdownButtonFormField<int>(
                             initialValue: _tallaSeleccionada,
-                            hint: const Text('2. Seleccionar Talla'),
+                            hint: const Text("2. Seleccionar Talla"),
                             items: _tallasDisponibles
                                 .map(
                                   (t) => DropdownMenuItem(
@@ -321,7 +322,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                           //  COLOR (Habilitado solo si hay talla)
                           DropdownButtonFormField<String>(
                             initialValue: _colorSeleccionado,
-                            hint: const Text('3. Seleccionar Color'),
+                            hint: const Text("3. Seleccionar Color"),
                             items: _coloresDisponibles
                                 .map(
                                   (c) => DropdownMenuItem(
@@ -353,14 +354,14 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Stock: ${_calzadoFinal!['stock']} pares',
+                                    "Stock: ${_calzadoFinal!["stock"]} pares",
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: Colors.blueGrey,
                                     ),
                                   ),
                                   Text(
-                                    'Precio: S/.${_calzadoFinal!['precio']}',
+                                    "Precio: S/.${_calzadoFinal!["precio"]}",
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -381,7 +382,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                                   keyboardType: TextInputType.number,
                                   enabled: _colorSeleccionado != null,
                                   decoration: InputDecoration(
-                                    labelText: 'Cant.',
+                                    labelText: "Cant.",
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -400,7 +401,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                                     color: Colors.white,
                                   ),
                                   label: const Text(
-                                    'Añadir',
+                                    "Añadir",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
@@ -429,12 +430,12 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Resumen del Carrito',
+                  "Resumen del Carrito",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 // Monto Total
                 Text(
-                  'Total: S/.${_montoTotalVenta.toStringAsFixed(2)}',
+                  "Total: S/.${_montoTotalVenta.toStringAsFixed(2)}",
                   style: const TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
@@ -449,7 +450,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
             Expanded(
               child: _carrito.isEmpty
                   ? const Center(
-                      child: Text('Ningún calzado añadido al detalle.'),
+                      child: Text("Ningún calzado añadido al detalle."),
                     )
                   : ListView.builder(
                       itemCount: _carrito.length,
@@ -460,20 +461,20 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                           color: AppColors.surface,
                           child: ListTile(
                             title: Text(
-                              item['descripcion'],
+                              item["descripcion"],
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
                             ),
                             subtitle: Text(
-                              '${item['cantidad']} pares x S/.${item['precio']}',
+                              "${item["cantidad"]} pares x S/.${item["precio"]}",
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'S/.${item['subtotal'].toStringAsFixed(2)}',
+                                  "S/.${item["subtotal"].toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -509,7 +510,7 @@ class _FormularioRegistrarVentaState extends State<FormularioRegistrarVenta> {
                   child: _estaCargando
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
-                          'Confirmar Venta Total (S/.${_montoTotalVenta.toStringAsFixed(2)})',
+                          "Confirmar Venta Total (S/.${_montoTotalVenta.toStringAsFixed(2)})",
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

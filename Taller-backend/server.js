@@ -409,9 +409,6 @@ app.post("/api/produccion/registrar", async (req, res) => {
 
 
 
-
-
-
 // Levantar el servidor
 app.listen(3000, "0.0.0.0", () => {
     console.log("API lista en el puerto 3000");

@@ -44,6 +44,7 @@ class _DashboardInicioState extends State<DashboardInicio> {
     }
   }
 
+  //Funcion para obtener la actividad desde la API
   Future<List<dynamic>> obtenerActividad() async {
     try {
       final response = await http.get(Uri.parse(urlActividad));
@@ -240,7 +241,7 @@ class _DashboardInicioState extends State<DashboardInicio> {
     // Identificación precisa del tipo de movimiento
     final bool esVenta = movimientoTexto.contains('venta');
     final bool esEliminado =
-        movimientoTexto.contains('eliminad') ||
+        movimientoTexto.contains('eliminado') ||
         movimientoTexto.contains('descarte');
     final bool esConsumoTaller =
         movimientoTexto.contains('consumo') ||
