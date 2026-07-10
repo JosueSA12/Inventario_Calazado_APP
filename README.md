@@ -1,4 +1,4 @@
-# 👟 Sistema de Inventario de Calzado con CRUD
+# 👟 APP de INVENTARIO PARA UN TALLER DE CALZADO
 
 Este es un sistema de gestión que permite administrar el inventario de una taller de calzado. El proyecto implementa las operaciones básicas de un **CRUD** (Crear, Leer, Actualizar y Eliminar) para un control eficiente del stock.
 
