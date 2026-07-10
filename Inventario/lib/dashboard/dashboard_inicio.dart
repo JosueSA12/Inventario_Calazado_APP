@@ -106,7 +106,10 @@ class _DashboardInicioState extends State<DashboardInicio> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const ShimmerLoadingKpis();
                   } else if (snapshot.hasError) {
-                    return CardError(mensaje: 'Error KPIs: ${snapshot.error}');
+                    return CardError(
+                      mensaje: 'Error KPIs: ${snapshot.error}',
+                      onRetry: () {},
+                    );
                   }
 
                   final kpis = snapshot.data;
@@ -165,6 +168,11 @@ class _DashboardInicioState extends State<DashboardInicio> {
                     } else if (snapshot.hasError) {
                       return CardError(
                         mensaje: 'Error Historial: ${snapshot.error}',
+                        onRetry: () {
+                          setState(() {
+                            _actividadFuture = obtenerActividad();
+                          });
+                        },
                       );
                     }
 

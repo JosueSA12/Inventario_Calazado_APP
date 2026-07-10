@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import "package:flutter/material.dart";
+import "package:http/http.dart" as http;
+import "dart:convert";
 
-import 'package:inventario/core/widgets/calzado_card.dart';
+import "package:inventario/core/widgets/calzado_card.dart";
 
 class CalzadosView extends StatefulWidget {
   const CalzadosView({super.key});
@@ -12,15 +12,15 @@ class CalzadosView extends StatefulWidget {
 }
 
 class _CalzadosViewState extends State<CalzadosView> {
-  final String urlCalzados = 'http://192.168.100.122:3000/api/calzados';
+  final String urlCalzados = "http://192.168.100.122:3000/api/calzados";
   late Future<List<dynamic>> _calzadosFuture;
 
   final Color accentColor = const Color(0xFF8B5E3C);
 
   // Filtros
   final TextEditingController _searchController = TextEditingController();
-  String _searchTerm = '';
-  String _sortBy = 'precio_asc';
+  String _searchTerm = "";
+  String _sortBy = "precio_asc";
   String? _filtroModelo;
   String? _filtroTalla;
 
@@ -34,9 +34,9 @@ class _CalzadosViewState extends State<CalzadosView> {
     try {
       final response = await http.get(Uri.parse(urlCalzados));
       if (response.statusCode == 200) return json.decode(response.body);
-      throw Exception('Error en el servidor');
+      throw Exception("Error en el servidor");
     } catch (e) {
-      throw Exception('Error de conexión: $e');
+      throw Exception("Error de conexión: $e");
     }
   }
 
@@ -47,31 +47,31 @@ class _CalzadosViewState extends State<CalzadosView> {
     if (_searchTerm.isNotEmpty) {
       final busqueda = _searchTerm.toLowerCase();
       resultado = resultado.where((item) {
-        final modelo = (item['modelo'] ?? '').toString().toLowerCase();
-        final marca = (item['marca'] ?? '').toString().toLowerCase();
+        final modelo = (item["modelo"] ?? "").toString().toLowerCase();
+        final marca = (item["marca"] ?? "").toString().toLowerCase();
         return modelo.contains(busqueda) || marca.contains(busqueda);
       }).toList();
     }
 
     if (_filtroModelo != null) {
       resultado = resultado
-          .where((item) => item['modelo'] == _filtroModelo)
+          .where((item) => item["modelo"] == _filtroModelo)
           .toList();
     }
 
     if (_filtroTalla != null) {
       resultado = resultado
-          .where((item) => (item['talla'] ?? '').toString() == _filtroTalla)
+          .where((item) => (item["talla"] ?? "").toString() == _filtroTalla)
           .toList();
     }
 
     resultado.sort((a, b) {
-      if (_sortBy == 'precio_asc') {
-        return (a['precio'] ?? 0).compareTo(b['precio'] ?? 0);
-      } else if (_sortBy == 'precio_desc') {
-        return (b['precio'] ?? 0).compareTo(a['precio'] ?? 0);
+      if (_sortBy == "precio_asc") {
+        return (a["precio"] ?? 0).compareTo(b["precio"] ?? 0);
+      } else if (_sortBy == "precio_desc") {
+        return (b["precio"] ?? 0).compareTo(a["precio"] ?? 0);
       } else {
-        return (a['modelo'] ?? '').compareTo(b['modelo'] ?? '');
+        return (a["modelo"] ?? "").compareTo(b["modelo"] ?? "");
       }
     });
 
@@ -93,13 +93,13 @@ class _CalzadosViewState extends State<CalzadosView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Filtros',
+                "Filtros",
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
 
               const Text(
-                'Modelo',
+                "Modelo",
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               FutureBuilder<List<dynamic>>(
@@ -107,7 +107,7 @@ class _CalzadosViewState extends State<CalzadosView> {
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const SizedBox();
                   final modelos = snapshot.data!
-                      .map((e) => e['modelo']?.toString())
+                      .map((e) => e["modelo"]?.toString())
                       .whereType<String>()
                       .toSet()
                       .toList();
@@ -115,7 +115,7 @@ class _CalzadosViewState extends State<CalzadosView> {
                   return DropdownButton<String>(
                     value: _filtroModelo,
                     isExpanded: true,
-                    hint: const Text('Todos los modelos'),
+                    hint: const Text("Todos los modelos"),
                     items: modelos
                         .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                         .toList(),
@@ -129,7 +129,7 @@ class _CalzadosViewState extends State<CalzadosView> {
               const SizedBox(height: 16),
 
               const Text(
-                'Talla',
+                "Talla",
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               FutureBuilder<List<dynamic>>(
@@ -137,7 +137,7 @@ class _CalzadosViewState extends State<CalzadosView> {
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const SizedBox();
                   final tallas = snapshot.data!
-                      .map((e) => e['talla']?.toString())
+                      .map((e) => e["talla"]?.toString())
                       .whereType<String>()
                       .toSet()
                       .toList();
@@ -145,7 +145,7 @@ class _CalzadosViewState extends State<CalzadosView> {
                   return DropdownButton<String>(
                     value: _filtroTalla,
                     isExpanded: true,
-                    hint: const Text('Todas las tallas'),
+                    hint: const Text("Todas las tallas"),
                     items: tallas
                         .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                         .toList(),
@@ -159,7 +159,7 @@ class _CalzadosViewState extends State<CalzadosView> {
               const SizedBox(height: 16),
 
               const Text(
-                'Ordenar por',
+                "Ordenar por",
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               DropdownButton<String>(
@@ -167,14 +167,14 @@ class _CalzadosViewState extends State<CalzadosView> {
                 isExpanded: true,
                 items: const [
                   DropdownMenuItem(
-                    value: 'precio_asc',
-                    child: Text('Precio: Menor a Mayor'),
+                    value: "precio_asc",
+                    child: Text("Precio: Menor a Mayor"),
                   ),
                   DropdownMenuItem(
-                    value: 'precio_desc',
-                    child: Text('Precio: Mayor a Menor'),
+                    value: "precio_desc",
+                    child: Text("Precio: Mayor a Menor"),
                   ),
-                  DropdownMenuItem(value: 'nombre', child: Text('Nombre A-Z')),
+                  DropdownMenuItem(value: "nombre", child: Text("Nombre A-Z")),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -192,11 +192,11 @@ class _CalzadosViewState extends State<CalzadosView> {
                     setState(() {
                       _filtroModelo = null;
                       _filtroTalla = null;
-                      _sortBy = 'precio_asc';
+                      _sortBy = "precio_asc";
                     });
                     Navigator.pop(context);
                   },
-                  child: const Text('Limpiar Filtros'),
+                  child: const Text("Limpiar Filtros"),
                 ),
               ),
             ],
@@ -221,22 +221,36 @@ class _CalzadosViewState extends State<CalzadosView> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.shopping_bag_rounded,
+                    Icons.shopping_bag_outlined,
                     color: accentColor,
-                    size: 28,
+                    size: 34,
                   ),
-                  const SizedBox(width: 14),
-                  Text(
-                    'Calzados en Venta',
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(width: 16),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(
+                          text: "Calzados ",
+                          style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF4A3423),
+                          ),
+                        ),
+                        TextSpan(
+                          text: "en Venta",
+                          style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w300,
+                            color: accentColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -246,17 +260,30 @@ class _CalzadosViewState extends State<CalzadosView> {
             // Buscador
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _searchTerm = value),
-                decoration: InputDecoration(
-                  hintText: 'Buscar calzado...',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+              child: Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      // ignore: deprecated_member_use
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _searchTerm = value),
+                  decoration: InputDecoration(
+                    hintText: "Buscar por modelo",
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),
@@ -269,13 +296,17 @@ class _CalzadosViewState extends State<CalzadosView> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ElevatedButton.icon(
                 onPressed: () => _mostrarFiltros(context),
-                icon: const Icon(Icons.filter_list),
-                label: const Text('Filtros'),
+                icon: const Icon(Icons.tune, size: 22),
+                label: const Text("Filtros", style: TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black87,
-                  elevation: 1,
-                  minimumSize: const Size(double.infinity, 48),
+                  elevation: 2,
+                  shadowColor: Colors.black26,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
@@ -291,21 +322,21 @@ class _CalzadosViewState extends State<CalzadosView> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError || !snapshot.hasData) {
-                    return const Center(child: Text('Error al cargar'));
+                    return const Center(child: Text("Error al cargar"));
                   }
 
                   final listaFiltrada = _aplicarFiltros(snapshot.data!);
 
                   if (listaFiltrada.isEmpty) {
                     return const Center(
-                      child: Text('No se encontraron resultados'),
+                      child: Text("No se encontraron resultados"),
                     );
                   }
 
                   Map<String, List<Map<String, dynamic>>> agrupados = {};
                   for (var item in listaFiltrada) {
                     final map = Map<String, dynamic>.from(item);
-                    final modelo = map['modelo']?.toString() ?? 'Sin modelo';
+                    final modelo = map["modelo"]?.toString() ?? "Sin modelo";
                     agrupados.putIfAbsent(modelo, () => []).add(map);
                   }
 

@@ -1,49 +1,78 @@
-
 const express = require("express");
-const sql = require("mssql/msnodesqlv8");
 const cors = require("cors");
-
-
+const sql = require("mssql");
+//const sql = require("mssql/msnodesqlv8");
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-//CONEXIÓN A SQL SERVER CON AUTENTICACIÓN DE WINDOWS
+// =========================================================================
+// Opciones de Conexión a la Base de Datos
+// =========================================================================
+
+/*
+// Opción A: CONEXIÓN A SQL SERVER CON AUTENTICACIÓN DE WINDOWS (LOCAL)
 const dbConfig = {
-    connectionString: "Driver={ODBC Driver 17 for SQL Server};Server=localhost\\MSSQLSERVER01;Database=DB_TallerCalzado;Trusted_Connection=yes;Encrypt=yes;TrustServerCertificate=yes;"
+    connectionString: "Driver={ODBC Driver 17 for SQL Server};Server=localhost\\\\MSSQLSERVER01;Database=DB_TallerCalzado;Trusted_Connection=yes;Encrypt=yes;TrustServerCertificate=yes;"
 };
 
-// Conectar una sola vez
 let poolPromise = sql.connect(dbConfig)
     .then(pool => {
         console.log(" Conectado a SQL Server mediante Autenticación de Windows");
         return pool;
     })
     .catch(err => {
-        console.error(" Error de conexión:", err);
+        console.error(" Error de conexión local:", err);
+    });
+*/
+
+// Opción B: BASE DE DATOS EN LA NUBE 
+const dbConfig = {
+    user: 'db_acbcc3_dbtaller_admin',
+    password: '74532960josue',
+    server: 'sql9001.site4now.net', 
+    database: 'db_acbcc3_dbtaller',
+    port: 1433,
+    options: {
+        encrypt: true, 
+        trustServerCertificate: true 
+    }
+};
+
+let poolPromise = sql.connect(dbConfig)
+    .then(pool => {
+        console.log("¡Conectado exitosamente a la base de datos de SQL Server en la nube!");
+        return pool;
+    })
+    .catch(err => {
+        console.error("Error al intentar conectar con la nube:", err);
     });
 
-//Endpoint para el Dashboard
+
+// =========================================================================
+// MÓDULO 1: DASHBOARD
+// =========================================================================
+
+// Endpoint: Obtener Resumen General Numérico
 app.get("/api/dashboard/resumen", async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().execute("Inventario.USP_Dashboard_ObtenerResumen");
         res.json(result.recordset[0]);
     } catch (err) {
+        console.error("Error en /api/dashboard/resumen:", err.message);
         res.status(500).send(err.message);
     }
 });
-// =========================================================================
-// Endpoint para la Actividad Reciente
-// =========================================================================
+
+// Endpoint: Listar Actividad Reciente (Materiales y Calzados)
 app.get("/api/dashboard/actividad", async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().execute("Inventario.USP_Dashboard_ListarActividadReciente");
         const filas = result.recordset || (result.recordsets && result.recordsets[0]) || [];
         
-        // Mapeamos los datos 
         const datosLimpios = filas.map(item => ({
             Fecha: item.Fecha,
             Tipo: item.Tipo,
@@ -53,25 +82,25 @@ app.get("/api/dashboard/actividad", async (req, res) => {
             Encargado: item.Encargado
         }));
 
-        // Enviamos la lista
         res.json(datosLimpios);
     } catch (err) {
-        console.error("Error detectado en el endpoint de actividad:", err.message);
+        console.error("Error en /api/dashboard/actividad:", err.message);
         res.status(500).send(err.message);
     }
 });
 
+
 // =========================================================================
-//Endpoint para MOSTRAR INVENTARIO DE MATERIALES 
+// MÓDULO 2: GESTIÓN DE MATERIALES (INSUMOS)
 // =========================================================================
+
+// Endpoint: Listar todos los Materiales Activos
 app.get("/api/materiales", async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().execute("Inventario.USP_Inventario_ListarMateriales");
-        
         const filas = result.recordset || (result.recordsets && result.recordsets[0]) || [];
         
-        // Mapeamos 
         const datosLimpios = filas.map(item => ({
             codigo: item.codigo.trim(),
             insumo: item.insumo,
@@ -83,22 +112,18 @@ app.get("/api/materiales", async (req, res) => {
 
         res.json(datosLimpios);
     } catch (err) {
-        console.error("Error en endpoint de materiales:", err.message);
+        console.error("Error en /api/materiales:", err.message);
         res.status(500).send(err.message);
     }
 });
 
-// =========================================================================
-// ENDPOINT: AlERTAS DE BAJO STOCK
-// =========================================================================
+// Endpoint: Listar Materiales con Alerta de Bajo Stock
 app.get("/api/materiales/alertas", async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().execute("Inventario.USP_Inventario_ListarAlertasBajoStock");
-        
         const filas = result.recordset || (result.recordsets && result.recordsets[0]) || [];
         
-        // Mapeamos los datos 
         const alertasLimpias = filas.map(item => ({
             codigo: item.codigo.trim(),
             insumo: item.insumo,
@@ -110,30 +135,27 @@ app.get("/api/materiales/alertas", async (req, res) => {
 
         res.json(alertasLimpias);
     } catch (err) {
-        console.error("Error en endpoint de alertas de stock:", err.message);
+        console.error("Error en /api/materiales/alertas:", err.message);
         res.status(500).send(err.message);
     }
 });
 
-//ENDPOINT: OBTENER LISTA DE MATERIALES EXISTENTES PARA EL DROPDOWN
+// Endpoint: Obtener Lista de Materiales para Selectores (Dropdowns)
 app.get("/api/materiales/dropdown", async (req, res) => {
     try {
-        const result = await sql.query("EXEC Inventario.USP_Material_ListarParaDropdown");
-              
-        return res.status(200).json(result.recordset);
-        
-    } catch (error) {
-        console.error("Error al obtener materiales para el taller:", error);
-        return res.status(500).json({ 
+        const pool = await poolPromise;
+        const result = await pool.request().execute("Inventario.USP_Material_ListarParaDropdown");
+        res.status(200).json(result.recordset);
+    } catch (err) {
+        console.error("Error en /api/materiales/dropdown:", err.message);
+        res.status(500).json({ 
             error: "Error interno en el servidor de calzado", 
-            detalles: error.message 
+            detalles: err.message 
         });
     }
 });
 
-// =========================================================================
-// ENDPOINT: INSERTAR O INCREMENTAR MATERIAL (CORREGIDO)
-// =========================================================================
+// Endpoint: Insertar o Incrementar Stock de Material
 app.post("/api/materiales", async (req, res) => {
     const { insumo, categoria, cantidad, medida, proveedor, usuarioID } = req.body;
 
@@ -169,16 +191,13 @@ app.post("/api/materiales", async (req, res) => {
                 codigo: CodigoResultado.trim()
             });
         }
-
     } catch (err) {
-        console.error("Error en el servidor al procesar el material:", err.message);
+        console.error("Error en POST /api/materiales:", err.message);
         res.status(500).send("Error interno del servidor: " + err.message);
     }
 });
 
-// =========================================================================
-// ENDPOINT: EDITAR / ACTUALIZAR MATERIAL
-// =========================================================================
+// Endpoint: Editar Datos de un Material
 app.put("/api/materiales", async (req, res) => {
     const { codigo, insumo, categoria, cantidad, medida, proveedor } = req.body;
 
@@ -203,30 +222,26 @@ app.put("/api/materiales", async (req, res) => {
             estatus: "success",
             mensaje: "Material actualizado correctamente." 
         });
-
     } catch (err) {
-        console.error("Error en el servidor al editar material:", err.message);
+        console.error("Error en PUT /api/materiales:", err.message);
         res.status(400).send(err.message);
     }
 });
 
-
-// =========================================================================
-// ENDPOINT: ELIMINACIÓN DE MATERIAL
-// =========================================================================
+// Endpoint: Desactivar / Eliminar 
 app.delete("/api/materiales/:codigo", async (req, res) => {
     const { codigo } = req.params;    
     const { usuarioID } = req.body; 
-    // Validación de seguridad por si acaso
+
     if (!usuarioID) {
         return res.status(400).json({ 
             estatus: "error", 
             mensaje: "El usuarioID es requerido para registrar el movimiento en el historial." 
         });
     }
+
     try {
         const pool = await poolPromise; 
-        
         const result = await pool.request()
             .input("MaterialCodigo", sql.NChar(8), codigo)
             .input("UsuarioID", sql.NChar(8), usuarioID) 
@@ -236,39 +251,51 @@ app.delete("/api/materiales/:codigo", async (req, res) => {
             estatus: "success",
             mensaje: result.recordset[0].Mensaje
         });
-
     } catch (err) {
-        console.error("Error en el servidor al eliminar material:", err.message);
+        console.error("Error en DELETE /api/materiales:", err.message);
         res.status(500).send("Error interno del servidor: " + err.message);
     }
 });
 
+
 // =========================================================================
-// ENDPOINT: LISTAR CALZADOS DISPONIBLES
+// MÓDULO 3: CATÁLOGO Y VENTAS DE CALZADO
 // =========================================================================
+
+// Endpoint: Listar todos los Calzados Disponibles
 app.get("/api/calzados", async (req, res) => {
     try {
         const pool = await poolPromise;
-        
-        // Ejecutamos el SP
-        const result = await pool.request()
-            .execute("Inventario.USP_Inventario_ListarCalzado");
-
+        const result = await pool.request().execute("Inventario.USP_Inventario_ListarCalzado");
         res.status(200).json(result.recordset);
-
     } catch (err) {
-        console.error("Error al listar calzado:", err.message);
+        console.error("Error en /api/calzados:", err.message);
         res.status(400).send(err.message);
     }
 });
 
-// =========================================================================
-// ENDPOINT: REGISTRAR VENTA MÚLTIPLE (CARRITO DE COMPRAS)
-// =========================================================================
+// Endpoint: Obtener Lista de Calzados Activos para Selectores (Dropdowns)
+app.get("/api/calzado/lista-dropdown", async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().execute("Inventario.USP_Calzado_ListarParaDropdown");
+        res.status(200).json({
+            estatus: "success",
+            data: result.recordset
+        });
+    } catch (err) {
+        console.error("Error en /api/calzado/lista-dropdown:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error en el servidor al obtener el catálogo de calzados: " + err.message
+        });
+    }
+});
+
+// Endpoint: Registrar Venta
 app.post("/api/calzado/venta-multiple", async (req, res) => {
     const { usuarioID, productos } = req.body;
 
-    // Validaciones
     if (!usuarioID || !productos || !Array.isArray(productos) || productos.length === 0) {
         return res.status(400).json({
             estatus: "error",
@@ -282,16 +309,14 @@ app.post("/api/calzado/venta-multiple", async (req, res) => {
     try {
         await transaction.begin();
 
-        // Recorremos cada producto del carrito uno por uno
         for (const item of productos) {
             const { calzadoCodigo, cantidad } = item;
-            
             const cantidadInt = parseInt(cantidad, 10);
+            
             if (isNaN(cantidadInt) || cantidadInt <= 0) {
-                throw new Error("La cantidad para el calzado ${calzadoCodigo} debe ser un entero mayor a cero.");
+                throw new Error(`La cantidad para el calzado ${calzadoCodigo} debe ser un entero mayor a cero.`);
             }
 
-            //Ejecutamos el SP individual para cada ítem DENTRO de la misma transacción
             const request = new sql.Request(transaction);
             await request
                 .input("CalzadoCodigo", sql.NChar(8), calzadoCodigo)
@@ -301,55 +326,28 @@ app.post("/api/calzado/venta-multiple", async (req, res) => {
         }
 
         await transaction.commit();
-
         res.status(200).json({
             estatus: "success",
             mensaje: "¡Venta múltiple registrada con éxito en el sistema!"
         });
-
     } catch (err) {
-        // Si ocurre un error, hacemos rollback 
         if (transaction._id !== null) {
             await transaction.rollback();
         }
-
         console.error("Error en venta múltiple (Rollback aplicado):", err.message);
         res.status(400).json({
             estatus: "error",
-            mensaje: "Error al procesar la venta: ${err.message}"
-        });
-    }
-});
-
-// =========================================================================
-// ENDPOINT: OBTENER LISTA DE CALZADOS ACTIVOS
-// =========================================================================
-app.get("/api/calzado/lista-dropdown", async (req, res) => {
-    try {
-        const pool = await poolPromise;
-        
-        // Ejecutamos el SP para obtener la lista de calzados
-        const result = await pool.request()
-            .execute("Inventario.USP_Calzado_ListarParaDropdown");
-
-        res.status(200).json({
-            estatus: "success",
-            data: result.recordset
-        });
-
-    } catch (err) {
-        console.error("Error al ejecutar USP_Calzado_ListarParaDropdown:", err.message);
-        res.status(500).json({
-            estatus: "error",
-            mensaje: "Error en el servidor al obtener el catálogo de calzados: " + err.message
+            mensaje: `Error al procesar la venta: ${err.message}`
         });
     }
 });
 
 
 // =========================================================================
-// POST: REGISTRAR PRODUCCIÓN DE CALZADO (CON INSUMOS)
+// MÓDULO 4: PRODUCCIÓN EN TALLER
 // =========================================================================
+
+// Endpoint: Registrar Orden de Producción de Calzado (JSON)
 app.post("/api/produccion/registrar", async (req, res) => {
     const { calzadoCodigo, cantidadPares, usuarioID, materiales } = req.body;
 
@@ -366,11 +364,11 @@ app.post("/api/produccion/registrar", async (req, res) => {
     try {
         const pool = await poolPromise; 
         const materialesJSONTexto = JSON.stringify(materiales);
-        // consulta y mapear los parámetros hacia el SP
+        
         const result = await pool.request()
             .input("CalzadoCodigo", sql.NChar(8), calzadoCodigo)
             .input("CantidadPares", sql.Int, parseInt(cantidadPares))
-            .input("UsuarioID", sql.NChar(8), usuarioID || "USR00001") // Si no viene, usa el administrador por defecto
+            .input("UsuarioID", sql.NChar(8), usuarioID || "USR00001")
             .input("MaterialesJSON", sql.NVarChar(sql.MAX), materialesJSONTexto)
             .execute("Inventario.USP_ProduccionCalzado_Registrar");
 
@@ -387,7 +385,6 @@ app.post("/api/produccion/registrar", async (req, res) => {
                 mensaje: respuestaSP.Mensaje || "No se pudo completar el registro en la base de datos."
             });
         }
-
     } catch (err) {
         console.error("Error en el servidor al registrar producción:", err.message);
         
@@ -398,7 +395,6 @@ app.post("/api/produccion/registrar", async (req, res) => {
             });
         }
 
-        // Cualquier otro error interno
         return res.status(500).json({
             estatus: "error",
             mensaje: "Error interno en el servidor: " + err.message
@@ -407,9 +403,10 @@ app.post("/api/produccion/registrar", async (req, res) => {
 });
 
 
-
-
-// Levantar el servidor
-app.listen(3000, "0.0.0.0", () => {
-    console.log("API lista en el puerto 3000");
+// =========================================================================
+// Encendido del Servidor HTTP
+// =========================================================================
+const PUERTO = 3000;
+app.listen(PUERTO, "0.0.0.0", () => {
+   console.log(`🌐 API activa y escuchando peticiones en el puerto ${PUERTO}`);
 });

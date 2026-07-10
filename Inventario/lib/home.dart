@@ -3,15 +3,14 @@
 import 'package:flutter/material.dart';
 import 'package:pandabar/pandabar.dart';
 
-import 'package:inventario/screens/materiales_view.dart';
+import 'package:inventario/core/theme/app_colors.dart';
 import 'package:inventario/dashboard/dashboard_inicio.dart';
 import 'package:inventario/formularios/formulario_resgistrar_calzado.dart';
 import 'package:inventario/formularios/formulario_registrar_material.dart';
+import 'package:inventario/formularios/formulario_registrar_venta.dart';
 import 'package:inventario/screens/alertas_stock_view.dart';
 import 'package:inventario/screens/calzado_view.dart';
-import 'package:inventario/formularios/formulario_registrar_venta.dart';
-
-import 'core/theme/app_colors.dart';
+import 'package:inventario/screens/materiales_view.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -21,8 +20,16 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  // =========================================================================
+  // ESTADOS Y VARIABLES
+  // =========================================================================
   String page = 'Dashboard';
 
+  // =========================================================================
+  // VISTAS Y COMPONENTES DE INTERFAZ (MÉTODOS PRIVADOS)
+  // =========================================================================
+
+  /// Panel inferior
   Widget _buildOptionCard({
     required String title,
     required String subtitle,
@@ -86,6 +93,7 @@ class _HomeState extends State<Home> {
     );
   }
 
+  /// Acciones rápidas del taller
   void _mostrarOpcionesDeRegistro(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -100,7 +108,6 @@ class _HomeState extends State<Home> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Indicador superior táctil (Pill)
               Container(
                 width: 40,
                 height: 5,
@@ -121,7 +128,7 @@ class _HomeState extends State<Home> {
               ),
               const SizedBox(height: 24),
 
-              // Opción: Nueva Orden de Producción / Calzado
+              // Opción: Nueva Orden de Producción / Lote de Calzado
               _buildOptionCard(
                 title: 'Lote de Producción',
                 subtitle: 'Registrar fabricación de calzado y consumo',
@@ -141,7 +148,7 @@ class _HomeState extends State<Home> {
               ),
               const SizedBox(height: 12),
 
-              // Opción: Nuevo Material
+              // Opción: Agregar Materia Prima / Insumo
               _buildOptionCard(
                 title: 'Materia Prima / Insumo',
                 subtitle: 'Ingresar cuero, suelas, hilos o pegamentos',
@@ -161,7 +168,7 @@ class _HomeState extends State<Home> {
               ),
               const SizedBox(height: 12),
 
-              // Opción: Registrar Venta
+              // Opción: Registrar Venta de Producto Terminado
               _buildOptionCard(
                 title: 'Registrar Venta',
                 subtitle: 'Salida de calzado terminado',
@@ -186,6 +193,9 @@ class _HomeState extends State<Home> {
     );
   }
 
+  // =========================================================================
+  // ÁRBOL DE COMPONENTES PRINCIPAL (BUILD)
+  // =========================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -195,9 +205,7 @@ class _HomeState extends State<Home> {
         backgroundColor: AppColors.surface,
         fabColors: const [Color(0xFF829F82), Color(0xFF6E8B6E)],
         fabIcon: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
-
         buttonSelectedColor: const Color(0xFF3D2B1F),
-
         buttonData: [
           PandaBarButtonData(
             id: 'Dashboard',
