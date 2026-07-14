@@ -20,18 +20,18 @@ class MaterialModel {
   });
 
   factory MaterialModel.fromJson(Map<String, dynamic> json) {
-    final cantidad = double.tryParse(json['cantidad'].toString()) ?? 0.0;
+    final cantidad = double.tryParse(json["cantidad"].toString()) ?? 0.0;
     final stockMinimo =
-        double.tryParse(json['stockMinimo']?.toString() ?? '5') ?? 5.0;
+        double.tryParse(json["stockMinimo"]?.toString() ?? "5") ?? 5.0;
 
     return MaterialModel(
-      id: json['id']?.toString() ?? '',
-      codigo: json['codigo']?.toString() ?? '',
-      insumo: json['insumo']?.toString() ?? 'Sin nombre',
-      categoria: json['categoria']?.toString() ?? 'General',
+      id: json["id"]?.toString() ?? "",
+      codigo: json["codigo"]?.toString() ?? "",
+      insumo: json["insumo"]?.toString() ?? "Sin nombre",
+      categoria: json["categoria"]?.toString() ?? "General",
       cantidad: cantidad,
-      medida: json['medida']?.toString() ?? '',
-      proveedor: json['proveedor']?.toString() ?? 'Sin proveedor',
+      medida: json["medida"]?.toString() ?? "",
+      proveedor: json["proveedor"]?.toString() ?? "Sin proveedor",
       esBajoStock: cantidad < stockMinimo,
     );
   }

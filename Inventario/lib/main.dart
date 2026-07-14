@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
-import 'core/theme/app_theme.dart';
-import 'home.dart';
+import "package:flutter/material.dart";
+import "package:flutter_localizations/flutter_localizations.dart";
+import "package:provider/provider.dart";
+import "core/theme/app_theme.dart";
+import "screens/login_page.dart";
+import "core/providers/carrito_provider.dart";
+import 'core/providers/reporte_provider.dart';
+import 'core/providers/notificacion_provider.dart';
 
 void main() {
   runApp(const MiTallerApp());
@@ -11,15 +16,26 @@ class MiTallerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Taller de Calzado',
-
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light,
-
-      home: const Home(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CarritoProvider()),
+        ChangeNotifierProvider(create: (_) => ReporteProvider()),
+        ChangeNotifierProvider(create: (_) => NotificacionProvider()),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: "Taller de Calzado",
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.light,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('es', 'ES'), Locale('en', 'US')],
+        home: const LoginScreen(),
+      ),
     );
   }
 }

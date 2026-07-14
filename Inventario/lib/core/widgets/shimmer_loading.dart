@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:inventario/core/theme/app_colors.dart';
+import "package:flutter/material.dart";
+import "package:inventario/core/theme/app_colors.dart";
 
 class ShimmerLoadingKpis extends StatelessWidget {
   const ShimmerLoadingKpis({super.key});

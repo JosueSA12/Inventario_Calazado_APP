@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import "package:flutter/material.dart";
 
 class CardError extends StatelessWidget {
   final String mensaje;
@@ -42,7 +42,7 @@ class CardError extends StatelessWidget {
                 color: Colors.red.shade700,
               ),
               label: Text(
-                'Reintentar',
+                "Reintentar",
                 style: TextStyle(color: Colors.red.shade700),
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import 'package:inventario/core/theme/app_colors.dart';
+import 'package:inventario/core/services/notification_service.dart';
 
 class FormularioEditar extends StatefulWidget {
   final Map<String, dynamic> material;
@@ -74,13 +75,12 @@ class _FormularioEditarState extends State<FormularioEditar> {
     super.dispose();
   }
 
-  // Función para actualizar el material en la base de datos
   Future<void> _actualizarMaterial() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _estaCargando = true);
 
-    final String urlApi = 'http://10.0.2.2:3000/api/materiales';
+    final String urlApi = 'http://192.168.100.122:3000/api/materiales';
 
     try {
       final response = await http.put(
@@ -99,20 +99,21 @@ class _FormularioEditarState extends State<FormularioEditar> {
       );
 
       if (response.statusCode == 200) {
-        if (mounted) Navigator.pop(context, true);
+        if (mounted) {
+          NotificationService.instance.exito(
+            context,
+            'Material actualizado correctamente',
+          );
+        }
+        Navigator.pop(context, true);
       } else {
         throw Exception(response.body);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${e.toString().replaceAll('Exception:', '').trim()}',
-            ),
-            backgroundColor: AppColors.kpiAlertas,
-            behavior: SnackBarBehavior.floating,
-          ),
+        NotificationService.instance.error(
+          context,
+          'Error al actualizar: ${e.toString().replaceAll('Exception:', '').trim()}',
         );
       }
     } finally {

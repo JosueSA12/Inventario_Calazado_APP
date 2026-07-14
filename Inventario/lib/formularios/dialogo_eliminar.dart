@@ -1,17 +1,20 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert'; // <-- ¡1. IMPORTACIÓN OBLIGATORIA PARA EL jsonEncode!
+import "package:flutter/material.dart";
+import "package:http/http.dart" as http;
+import "dart:convert";
 
-import 'package:inventario/core/theme/app_colors.dart';
+import "package:inventario/core/theme/app_colors.dart";
+import "package:inventario/core/services/notification_service.dart";
 
 class DialogoEliminar extends StatefulWidget {
   final String codigo;
   final String nombre;
+  final String? usuarioID;
 
   const DialogoEliminar({
     super.key,
     required this.codigo,
     required this.nombre,
+    this.usuarioID,
   });
 
   @override
@@ -26,30 +29,39 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
     setState(() => _estaCargando = true);
 
     final String urlApi =
-        'http://10.0.2.2:3000/api/materiales/${widget.codigo}';
+        "http://192.168.100.122:3000/api/materiales/${widget.codigo}";
 
     try {
       // Usamos http.Request
-      final request = http.Request('DELETE', Uri.parse(urlApi));
+      final request = http.Request("DELETE", Uri.parse(urlApi));
       request.headers.addAll({"Content-Type": "application/json"});
-      request.body = jsonEncode({"usuarioID": "USR00001"});
+      request.body = jsonEncode({"usuarioID": widget.usuarioID});
 
-      // Enviamos la petición de forma asíncrona
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        if (mounted) Navigator.pop(context, true);
+        if (mounted) {
+          NotificationService.instance.exito(
+            context,
+            'Material "${widget.nombre}" eliminado correctamente',
+          );
+          Navigator.pop(context, true);
+        }
       } else {
         throw Exception(response.body);
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context, false);
+        NotificationService.instance.error(
+          context,
+          'Error al eliminar: ${e.toString().replaceAll("Exception:", "").trim()}',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Error al eliminar: ${e.toString().replaceAll('Exception:', '').trim()}',
+              "Error al eliminar: ${e.toString().replaceAll("Exception:", "").trim()}",
             ),
             backgroundColor: AppColors.kpiAlertas,
             behavior: SnackBarBehavior.floating,
@@ -85,7 +97,7 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
           ),
           const SizedBox(width: 14),
           const Text(
-            'Eliminar Material',
+            "Eliminar Material",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
           ),
         ],
@@ -110,7 +122,7 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
                   ),
                 ),
                 child: Text(
-                  'Cancelar',
+                  "Cancelar",
                   style: TextStyle(
                     color: AppColors.textLight,
                     fontSize: 16,
@@ -143,7 +155,7 @@ class _DialogoEliminarState extends State<DialogoEliminar> {
                         ),
                       )
                     : const Text(
-                        'Eliminar',
+                        "Eliminar",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

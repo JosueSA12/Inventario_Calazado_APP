@@ -17,12 +17,12 @@ class AlertaMaterial {
 
   factory AlertaMaterial.fromJson(Map<String, dynamic> json) {
     return AlertaMaterial(
-      codigo: json['codigo']?.toString() ?? '',
-      insumo: json['insumo']?.toString() ?? 'Sin nombre',
-      categoria: json['categoria']?.toString() ?? 'General',
-      cantidad: (json['cantidad'] as num?)?.toDouble() ?? 0.0,
-      medida: json['medida']?.toString() ?? '',
-      proveedor: json['proveedor']?.toString() ?? 'Sin Proveedor',
+      codigo: json["codigo"]?.toString() ?? "",
+      insumo: json["insumo"]?.toString() ?? "Sin nombre",
+      categoria: json["categoria"]?.toString() ?? "General",
+      cantidad: (json["cantidad"] as num?)?.toDouble() ?? 0.0,
+      medida: json["medida"]?.toString() ?? "",
+      proveedor: json["proveedor"]?.toString() ?? "Sin Proveedor",
     );
   }
 }

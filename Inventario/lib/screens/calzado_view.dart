@@ -2,10 +2,14 @@ import "package:flutter/material.dart";
 import "package:http/http.dart" as http;
 import "dart:convert";
 
+import "package:inventario/core/theme/app_colors.dart";
 import "package:inventario/core/widgets/calzado_card.dart";
+import "package:inventario/formularios/formulario_resgistrar_calzado.dart";
+import "package:inventario/core/services/notification_service.dart";
 
 class CalzadosView extends StatefulWidget {
-  const CalzadosView({super.key});
+  final String? usuarioID;
+  const CalzadosView({super.key, this.usuarioID});
 
   @override
   State<CalzadosView> createState() => _CalzadosViewState();
@@ -15,18 +19,27 @@ class _CalzadosViewState extends State<CalzadosView> {
   final String urlCalzados = "http://192.168.100.122:3000/api/calzados";
   late Future<List<dynamic>> _calzadosFuture;
 
-  final Color accentColor = const Color(0xFF8B5E3C);
-
-  // Filtros
   final TextEditingController _searchController = TextEditingController();
   String _searchTerm = "";
-  String _sortBy = "precio_asc";
-  String? _filtroModelo;
-  String? _filtroTalla;
+  String? _tipoSeleccionado;
+  bool _mostrarTodos = true;
+
+  final List<String> _tipos = [
+    'Bota',
+    'Formal',
+    'Urbano',
+    'Deportivo',
+    'Tacos',
+    'Sandalias',
+  ];
 
   @override
   void initState() {
     super.initState();
+    _cargarDatos();
+  }
+
+  void _cargarDatos() {
     _calzadosFuture = obtenerCalzados();
   }
 
@@ -40,7 +53,83 @@ class _CalzadosViewState extends State<CalzadosView> {
     }
   }
 
-  // Función para aplicar filtros y ordenamiento
+  Future<void> _refrescarLista() async {
+    setState(() {
+      _cargarDatos();
+    });
+  }
+
+  void _navegarARegistrarProduccion(Map<String, dynamic>? calzado) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FormularioProduccionCalzado(
+          calzadoInicial: calzado,
+          usuarioID: widget.usuarioID,
+        ),
+      ),
+    ).then((result) {
+      if (result == true) {
+        NotificationService.instance.exito(
+          context,
+          'Producción registrada correctamente',
+        );
+        _refrescarLista();
+      }
+    });
+  }
+
+  void _limpiarFiltros() {
+    setState(() {
+      _mostrarTodos = true;
+      _tipoSeleccionado = null;
+      _searchTerm = "";
+      _searchController.clear();
+    });
+  }
+
+  bool _hayFiltrosActivos() {
+    return _tipoSeleccionado != null;
+  }
+
+  IconData _getTipoIcon(String tipo) {
+    switch (tipo) {
+      case 'Bota':
+        return Icons.work_rounded;
+      case 'Formal':
+        return Icons.room_service_rounded;
+      case 'Urbano':
+        return Icons.directions_walk_rounded;
+      case 'Deportivo':
+        return Icons.directions_run_rounded;
+      case 'Tacos':
+        return Icons.style_rounded;
+      case 'Sandalias':
+        return Icons.beach_access_rounded;
+      default:
+        return Icons.shopping_bag_rounded;
+    }
+  }
+
+  Color _getTipoColor(String tipo) {
+    switch (tipo) {
+      case 'Bota':
+        return Colors.brown.shade700;
+      case 'Formal':
+        return Colors.blue.shade700;
+      case 'Urbano':
+        return Colors.green.shade700;
+      case 'Deportivo':
+        return Colors.red.shade700;
+      case 'Tacos':
+        return Colors.pink.shade400;
+      case 'Sandalias':
+        return Colors.orange.shade700;
+      default:
+        return AppColors.primary;
+    }
+  }
+
   List<dynamic> _aplicarFiltros(List<dynamic> lista) {
     List<dynamic> resultado = List.from(lista);
 
@@ -48,162 +137,25 @@ class _CalzadosViewState extends State<CalzadosView> {
       final busqueda = _searchTerm.toLowerCase();
       resultado = resultado.where((item) {
         final modelo = (item["modelo"] ?? "").toString().toLowerCase();
-        final marca = (item["marca"] ?? "").toString().toLowerCase();
-        return modelo.contains(busqueda) || marca.contains(busqueda);
+        final tipo = (item["tipo"] ?? "").toString().toLowerCase();
+        final color = (item["color"] ?? "").toString().toLowerCase();
+        return modelo.contains(busqueda) ||
+            tipo.contains(busqueda) ||
+            color.contains(busqueda);
       }).toList();
     }
 
-    if (_filtroModelo != null) {
+    if (!_mostrarTodos && _tipoSeleccionado != null) {
       resultado = resultado
-          .where((item) => item["modelo"] == _filtroModelo)
+          .where(
+            (item) =>
+                (item["tipo"] ?? "").toString().toLowerCase() ==
+                _tipoSeleccionado!.toLowerCase(),
+          )
           .toList();
     }
-
-    if (_filtroTalla != null) {
-      resultado = resultado
-          .where((item) => (item["talla"] ?? "").toString() == _filtroTalla)
-          .toList();
-    }
-
-    resultado.sort((a, b) {
-      if (_sortBy == "precio_asc") {
-        return (a["precio"] ?? 0).compareTo(b["precio"] ?? 0);
-      } else if (_sortBy == "precio_desc") {
-        return (b["precio"] ?? 0).compareTo(a["precio"] ?? 0);
-      } else {
-        return (a["modelo"] ?? "").compareTo(b["modelo"] ?? "");
-      }
-    });
 
     return resultado;
-  }
-
-  void _mostrarFiltros(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Filtros",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-
-              const Text(
-                "Modelo",
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              FutureBuilder<List<dynamic>>(
-                future: _calzadosFuture,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox();
-                  final modelos = snapshot.data!
-                      .map((e) => e["modelo"]?.toString())
-                      .whereType<String>()
-                      .toSet()
-                      .toList();
-
-                  return DropdownButton<String>(
-                    value: _filtroModelo,
-                    isExpanded: true,
-                    hint: const Text("Todos los modelos"),
-                    items: modelos
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                        .toList(),
-                    onChanged: (val) {
-                      setState(() => _filtroModelo = val);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-
-              const Text(
-                "Talla",
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              FutureBuilder<List<dynamic>>(
-                future: _calzadosFuture,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox();
-                  final tallas = snapshot.data!
-                      .map((e) => e["talla"]?.toString())
-                      .whereType<String>()
-                      .toSet()
-                      .toList();
-
-                  return DropdownButton<String>(
-                    value: _filtroTalla,
-                    isExpanded: true,
-                    hint: const Text("Todas las tallas"),
-                    items: tallas
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                        .toList(),
-                    onChanged: (val) {
-                      setState(() => _filtroTalla = val);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-
-              const Text(
-                "Ordenar por",
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              DropdownButton<String>(
-                value: _sortBy,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem(
-                    value: "precio_asc",
-                    child: Text("Precio: Menor a Mayor"),
-                  ),
-                  DropdownMenuItem(
-                    value: "precio_desc",
-                    child: Text("Precio: Mayor a Menor"),
-                  ),
-                  DropdownMenuItem(value: "nombre", child: Text("Nombre A-Z")),
-                ],
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _sortBy = val);
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _filtroModelo = null;
-                      _filtroTalla = null;
-                      _sortBy = "precio_asc";
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Limpiar Filtros"),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -215,59 +167,22 @@ class _CalzadosViewState extends State<CalzadosView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F3),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // BARRA DE BÚSQUEDA
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.shopping_bag_outlined,
-                    color: accentColor,
-                    size: 34,
-                  ),
-                  const SizedBox(width: 16),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(
-                          text: "Calzados ",
-                          style: TextStyle(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF4A3423),
-                          ),
-                        ),
-                        TextSpan(
-                          text: "en Venta",
-                          style: TextStyle(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w300,
-                            color: accentColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Buscador
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child: Container(
                 decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      // ignore: deprecated_member_use
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
@@ -275,89 +190,313 @@ class _CalzadosViewState extends State<CalzadosView> {
                   controller: _searchController,
                   onChanged: (value) => setState(() => _searchTerm = value),
                   decoration: InputDecoration(
-                    hintText: "Buscar por modelo",
-                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                    filled: true,
-                    fillColor: Colors.white,
+                    hintText: 'Buscar calzado',
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: Colors.grey.shade500,
+                    ),
+                    suffixIcon: _searchTerm.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: Colors.grey.shade500,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchTerm = "");
+                            },
+                          )
+                        : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
+              ),
+            ),
+
+            // FILTROS TIPO CHIPS
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade700.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.filter_list_rounded,
+                          color: Colors.purple.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        "Filtrar por tipo:",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (!_mostrarTodos || _hayFiltrosActivos())
+                        TextButton(
+                          onPressed: _limpiarFiltros,
+                          child: const Text(
+                            'Limpiar',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.kpiAlertas,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _mostrarTodos = true;
+                                _tipoSeleccionado = null;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _mostrarTodos
+                                    ? Colors.purple.shade700
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _mostrarTodos
+                                      ? Colors.purple.shade700
+                                      : Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              child: const Text(
+                                'Todos',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        ..._tipos.map((tipo) {
+                          final isSelected = _tipoSeleccionado == tipo;
+                          final color = _getTipoColor(tipo);
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  if (isSelected) {
+                                    _mostrarTodos = true;
+                                    _tipoSeleccionado = null;
+                                  } else {
+                                    _mostrarTodos = false;
+                                    _tipoSeleccionado = tipo;
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? color
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? color
+                                        : Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _getTipoIcon(tipo),
+                                      size: 14,
+                                      color: isSelected ? Colors.white : color,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      tipo,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 12),
 
-            // Botón de Filtros
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ElevatedButton.icon(
-                onPressed: () => _mostrarFiltros(context),
-                icon: const Icon(Icons.tune, size: 22),
-                label: const Text("Filtros", style: TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  elevation: 2,
-                  shadowColor: Colors.black26,
-                  minimumSize: const Size(double.infinity, 54),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Grid
+            // LISTA DE CALZADOS
             Expanded(
-              child: FutureBuilder<List<dynamic>>(
-                future: _calzadosFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError || !snapshot.hasData) {
-                    return const Center(child: Text("Error al cargar"));
-                  }
+              child: RefreshIndicator(
+                color: Colors.purple.shade700,
+                onRefresh: _refrescarLista,
+                child: FutureBuilder<List<dynamic>>(
+                  future: _calzadosFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Colors.purple,
+                              strokeWidth: 3,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Cargando calzados...',
+                              style: TextStyle(
+                                color: AppColors.textLight,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      NotificationService.instance.error(
+                        context,
+                        'Error al cargar calzados',
+                      );
+                    }
 
-                  final listaFiltrada = _aplicarFiltros(snapshot.data!);
+                    final listaFiltrada = _aplicarFiltros(snapshot.data!);
 
-                  if (listaFiltrada.isEmpty) {
-                    return const Center(
-                      child: Text("No se encontraron resultados"),
+                    if (listaFiltrada.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 60,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchTerm.isNotEmpty ||
+                                      !_mostrarTodos ||
+                                      _hayFiltrosActivos()
+                                  ? 'No se encontraron calzados con estos filtros'
+                                  : 'No hay calzados registrados',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 16,
+                              ),
+                            ),
+                            if (_searchTerm.isNotEmpty ||
+                                !_mostrarTodos ||
+                                _hayFiltrosActivos()) ...[
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: _limpiarFiltros,
+                                icon: const Icon(Icons.clear_rounded, size: 18),
+                                label: const Text(
+                                  'Limpiar filtros',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.kpiAlertas,
+                                  side: BorderSide(
+                                    color: AppColors.kpiAlertas.withOpacity(
+                                      0.5,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    }
+
+                    Map<String, List<Map<String, dynamic>>> agrupados = {};
+                    for (var item in listaFiltrada) {
+                      final map = Map<String, dynamic>.from(item);
+                      final modelo = map["modelo"]?.toString() ?? "Sin modelo";
+                      agrupados.putIfAbsent(modelo, () => []).add(map);
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.50,
+                            ),
+                        itemCount: agrupados.length,
+                        itemBuilder: (context, index) {
+                          final modelo = agrupados.keys.elementAt(index);
+                          return TarjetaCalzado(
+                            variantes: agrupados[modelo]!,
+                            onProduccion: (calzado) =>
+                                _navegarARegistrarProduccion(calzado),
+                          );
+                        },
+                      ),
                     );
-                  }
-
-                  Map<String, List<Map<String, dynamic>>> agrupados = {};
-                  for (var item in listaFiltrada) {
-                    final map = Map<String, dynamic>.from(item);
-                    final modelo = map["modelo"]?.toString() ?? "Sin modelo";
-                    agrupados.putIfAbsent(modelo, () => []).add(map);
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.50,
-                          ),
-                      itemCount: agrupados.length,
-                      itemBuilder: (context, index) {
-                        final modelo = agrupados.keys.elementAt(index);
-                        return TarjetaCalzado(variantes: agrupados[modelo]!);
-                      },
-                    ),
-                  );
-                },
+                  },
+                ),
               ),
             ),
           ],

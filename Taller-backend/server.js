@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const sql = require("mssql");
-//const sql = require("mssql/msnodesqlv8");
 
 const app = express();
 app.use(express.json());
@@ -10,24 +9,6 @@ app.use(cors());
 // =========================================================================
 // Opciones de Conexión a la Base de Datos
 // =========================================================================
-
-/*
-// Opción A: CONEXIÓN A SQL SERVER CON AUTENTICACIÓN DE WINDOWS (LOCAL)
-const dbConfig = {
-    connectionString: "Driver={ODBC Driver 17 for SQL Server};Server=localhost\\\\MSSQLSERVER01;Database=DB_TallerCalzado;Trusted_Connection=yes;Encrypt=yes;TrustServerCertificate=yes;"
-};
-
-let poolPromise = sql.connect(dbConfig)
-    .then(pool => {
-        console.log(" Conectado a SQL Server mediante Autenticación de Windows");
-        return pool;
-    })
-    .catch(err => {
-        console.error(" Error de conexión local:", err);
-    });
-*/
-
-// Opción B: BASE DE DATOS EN LA NUBE 
 const dbConfig = {
     user: 'db_acbcc3_dbtaller_admin',
     password: '74532960josue',
@@ -43,18 +24,108 @@ const dbConfig = {
 let poolPromise = sql.connect(dbConfig)
     .then(pool => {
         console.log("¡Conectado exitosamente a la base de datos de SQL Server en la nube!");
+        app.set('pool', pool);
         return pool;
     })
     .catch(err => {
         console.error("Error al intentar conectar con la nube:", err);
     });
 
+// =========================================================================
+// ENDPOINT: INICIAR SESIÓN (LOGIN)
+// =========================================================================
+app.post("/api/seguridad/login", async (req, res) => {
+    const { usuarioInput, usuarioPassword } = req.body;
+
+    if (!usuarioInput || !usuarioPassword) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "El usario/correo y la contraseña son requeridos."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioInput", sql.NVarChar(100), usuarioInput)
+            .input("UsuarioPassword", sql.NVarChar(50), usuarioPassword)
+            .execute("Seguridad.USP_Usuario_ValidarAcceso");
+
+        const respuestaSP = result.recordset[0];
+
+        if (respuestaSP && respuestaSP.Resultado === "EXITO") {
+            return res.status(200).json({
+                estatus: "success",
+                mensaje: "Acceso concedido.",
+                usuario: {
+                    id: respuestaSP.UsuarioID,
+                    nombre: respuestaSP.UsuarioNombre,
+                    login: respuestaSP.UsuarioLogin,
+                    correo: respuestaSP.UsuarioCorreo,
+                    tipo: respuestaSP.TipoUsuarioCodigo
+                }
+            });
+        } else {
+            return res.status(401).json({
+                estatus: "error",
+                mensaje: respuestaSP ? respuestaSP.Mensaje : "Credenciales incorrectas."
+            });
+        }
+    } catch (err) {
+        console.error("Error en el servidor al validar acceso:", err.message);
+        return res.status(500).json({
+            estatus: "error",
+            mensaje: "Error interno en el servidor: " + err.message
+        });
+    }
+});
+
+// =========================================================================
+// ENDPOINT: RESTABLECER CONTRASEÑA
+// =========================================================================
+app.post("/api/seguridad/restablecer-password", async (req, res) => {
+    const { usuarioLogin, nuevaPassword } = req.body;
+
+    if (!usuarioLogin || !nuevaPassword) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "El usuario y la nueva contraseña son obligatorios."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioLogin", sql.NVarChar(20), usuarioLogin)
+            .input("NuevaPassword", sql.NVarChar(50), nuevaPassword)
+            .execute("Seguridad.USP_Usuario_RestablecerPassword");
+
+        const respuestaSP = result.recordset[0];
+
+        if (respuestaSP && respuestaSP.Resultado === "EXITO") {
+            return res.status(200).json({
+                estatus: "success",
+                mensaje: respuestaSP.Mensaje
+            });
+        } else {
+            return res.status(400).json({
+                estatus: "error",
+                mensaje: respuestaSP ? respuestaSP.Mensaje : "No se pudo restablecer la contraseña."
+            });
+        }
+    } catch (err) {
+        console.error("Error en el servidor al restablecer contraseña:", err.message);
+        return res.status(500).json({
+            estatus: "error",
+            mensaje: "Error de servidor: " + err.message
+        });
+    }
+});
 
 // =========================================================================
 // MÓDULO 1: DASHBOARD
 // =========================================================================
 
-// Endpoint: Obtener Resumen General Numérico
 app.get("/api/dashboard/resumen", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -66,7 +137,6 @@ app.get("/api/dashboard/resumen", async (req, res) => {
     }
 });
 
-// Endpoint: Listar Actividad Reciente (Materiales y Calzados)
 app.get("/api/dashboard/actividad", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -89,12 +159,54 @@ app.get("/api/dashboard/actividad", async (req, res) => {
     }
 });
 
+app.get("/api/dashboard/filtrar-movimientos", async (req, res) => {
+    const { tipo } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("TipoFiltro", sql.NVarChar(20), tipo || null)
+            .execute("Inventario.USP_Dashboard_FiltrarMovimientos");
+        
+        const filas = result.recordset || (result.recordsets && result.recordsets[0]) || [];
+        
+        const datosLimpios = filas.map(item => ({
+            Fecha: item.Fecha,
+            Tipo: item.Tipo,
+            Descripcion: item.Descripcion,
+            Cantidad: item.Cantidad ? item.Cantidad.toString() : "0",
+            Movimiento: item.Movimiento,
+            Encargado: item.Encargado
+        }));
+
+        res.json(datosLimpios);
+    } catch (err) {
+        console.error("Error en /api/dashboard/filtrar-movimientos:", err.message);
+        res.status(500).send(err.message);
+    }
+});
+
+app.get("/api/dashboard/kpis-filtro", async (req, res) => {
+    const { tipo } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("TipoFiltro", sql.NVarChar(20), tipo || null)
+            .execute("Inventario.USP_Dashboard_ObtenerKPIsPorFiltro");
+        
+        const kpis = result.recordset[0];
+        res.json(kpis);
+    } catch (err) {
+        console.error("Error en /api/dashboard/kpis-filtro:", err.message);
+        res.status(500).send(err.message);
+    }
+});
 
 // =========================================================================
 // MÓDULO 2: GESTIÓN DE MATERIALES (INSUMOS)
 // =========================================================================
 
-// Endpoint: Listar todos los Materiales Activos
 app.get("/api/materiales", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -117,7 +229,6 @@ app.get("/api/materiales", async (req, res) => {
     }
 });
 
-// Endpoint: Listar Materiales con Alerta de Bajo Stock
 app.get("/api/materiales/alertas", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -140,7 +251,6 @@ app.get("/api/materiales/alertas", async (req, res) => {
     }
 });
 
-// Endpoint: Obtener Lista de Materiales para Selectores (Dropdowns)
 app.get("/api/materiales/dropdown", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -155,7 +265,6 @@ app.get("/api/materiales/dropdown", async (req, res) => {
     }
 });
 
-// Endpoint: Insertar o Incrementar Stock de Material
 app.post("/api/materiales", async (req, res) => {
     const { insumo, categoria, cantidad, medida, proveedor, usuarioID } = req.body;
 
@@ -197,7 +306,6 @@ app.post("/api/materiales", async (req, res) => {
     }
 });
 
-// Endpoint: Editar Datos de un Material
 app.put("/api/materiales", async (req, res) => {
     const { codigo, insumo, categoria, cantidad, medida, proveedor } = req.body;
 
@@ -228,7 +336,6 @@ app.put("/api/materiales", async (req, res) => {
     }
 });
 
-// Endpoint: Desactivar / Eliminar 
 app.delete("/api/materiales/:codigo", async (req, res) => {
     const { codigo } = req.params;    
     const { usuarioID } = req.body; 
@@ -257,12 +364,10 @@ app.delete("/api/materiales/:codigo", async (req, res) => {
     }
 });
 
-
 // =========================================================================
 // MÓDULO 3: CATÁLOGO Y VENTAS DE CALZADO
 // =========================================================================
 
-// Endpoint: Listar todos los Calzados Disponibles
 app.get("/api/calzados", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -274,7 +379,6 @@ app.get("/api/calzados", async (req, res) => {
     }
 });
 
-// Endpoint: Obtener Lista de Calzados Activos para Selectores (Dropdowns)
 app.get("/api/calzado/lista-dropdown", async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -292,62 +396,11 @@ app.get("/api/calzado/lista-dropdown", async (req, res) => {
     }
 });
 
-// Endpoint: Registrar Venta
-app.post("/api/calzado/venta-multiple", async (req, res) => {
-    const { usuarioID, productos } = req.body;
-
-    if (!usuarioID || !productos || !Array.isArray(productos) || productos.length === 0) {
-        return res.status(400).json({
-            estatus: "error",
-            mensaje: "Faltan parámetros obligatorios o el carrito de productos está vacío."
-        });
-    }
-
-    const pool = await poolPromise;
-    const transaction = new sql.Transaction(pool);
-
-    try {
-        await transaction.begin();
-
-        for (const item of productos) {
-            const { calzadoCodigo, cantidad } = item;
-            const cantidadInt = parseInt(cantidad, 10);
-            
-            if (isNaN(cantidadInt) || cantidadInt <= 0) {
-                throw new Error(`La cantidad para el calzado ${calzadoCodigo} debe ser un entero mayor a cero.`);
-            }
-
-            const request = new sql.Request(transaction);
-            await request
-                .input("CalzadoCodigo", sql.NChar(8), calzadoCodigo)
-                .input("CantidadAVender", sql.Int, cantidadInt)
-                .input("UsuarioID", sql.NChar(8), usuarioID)
-                .execute("Inventario.USP_Calzado_RegistrarVenta");
-        }
-
-        await transaction.commit();
-        res.status(200).json({
-            estatus: "success",
-            mensaje: "¡Venta múltiple registrada con éxito en el sistema!"
-        });
-    } catch (err) {
-        if (transaction._id !== null) {
-            await transaction.rollback();
-        }
-        console.error("Error en venta múltiple (Rollback aplicado):", err.message);
-        res.status(400).json({
-            estatus: "error",
-            mensaje: `Error al procesar la venta: ${err.message}`
-        });
-    }
-});
-
 
 // =========================================================================
 // MÓDULO 4: PRODUCCIÓN EN TALLER
 // =========================================================================
 
-// Endpoint: Registrar Orden de Producción de Calzado (JSON)
 app.post("/api/produccion/registrar", async (req, res) => {
     const { calzadoCodigo, cantidadPares, usuarioID, materiales } = req.body;
 
@@ -402,6 +455,508 @@ app.post("/api/produccion/registrar", async (req, res) => {
     }
 });
 
+// =========================================================================
+// MÓDULO 5: CARRITO DE COMPRAS
+// =========================================================================
+
+// Endpoint: Agregar producto al carrito
+app.post("/api/carrito/agregar", async (req, res) => {
+    const { usuarioID, calzadoCodigo, cantidad } = req.body;
+
+    if (!usuarioID || !calzadoCodigo || !cantidad) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "Faltan parámetros: usuarioID, calzadoCodigo y cantidad son obligatorios."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioID", sql.NChar(8), usuarioID)
+            .input("CalzadoCodigo", sql.NChar(8), calzadoCodigo)
+            .input("Cantidad", sql.Int, parseInt(cantidad))
+            .execute("Inventario.USP_Carrito_AgregarProducto");
+
+        // El SP devuelve el detalle del carrito
+        res.status(200).json({
+            estatus: "success",
+            mensaje: "Producto agregado al carrito correctamente.",
+            data: result.recordset
+        });
+    } catch (err) {
+        console.error("Error en /api/carrito/agregar:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al agregar producto al carrito: " + err.message
+        });
+    }
+});
+
+// Endpoint: Obtener carrito del usuario
+app.get("/api/carrito/obtener", async (req, res) => {
+    const { usuarioID } = req.query;
+
+    if (!usuarioID) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "El usuarioID es obligatorio."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioID", sql.NChar(8), usuarioID)
+            .execute("Inventario.USP_Carrito_ObtenerDetalle");
+
+        const cabecera = result.recordsets[0] || [];
+        const detalle = result.recordsets[1] || [];
+
+        // Verificar si hay carrito activo
+        if (cabecera.length === 0) {
+            return res.status(200).json({
+                estatus: "success",
+                mensaje: "No hay carrito activo.",
+                data: {
+                    carrito: null,
+                    items: []
+                }
+            });
+        }
+
+        res.status(200).json({
+            estatus: "success",
+            data: {
+                carrito: cabecera[0],
+                items: detalle
+            }
+        });
+    } catch (err) {
+        console.error("Error en /api/carrito/obtener:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al obtener el carrito: " + err.message
+        });
+    }
+});
+
+// Endpoint: Actualizar cantidad de un producto en el carrito
+app.put("/api/carrito/actualizar", async (req, res) => {
+    const { usuarioID, detalleID, nuevaCantidad } = req.body;
+
+    if (!usuarioID || !detalleID || nuevaCantidad === undefined) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "Faltan parámetros: usuarioID, detalleID y nuevaCantidad son obligatorios."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioID", sql.NChar(8), usuarioID)
+            .input("DetalleID", sql.BigInt, detalleID)
+            .input("NuevaCantidad", sql.Int, parseInt(nuevaCantidad))
+            .execute("Inventario.USP_Carrito_ActualizarCantidad");
+
+        const cabecera = result.recordsets[0] || [];
+        const detalle = result.recordsets[1] || [];
+
+        res.status(200).json({
+            estatus: "success",
+            mensaje: "Cantidad actualizada correctamente.",
+            data: {
+                carrito: cabecera[0] || null,
+                items: detalle
+            }
+        });
+    } catch (err) {
+        console.error("Error en /api/carrito/actualizar:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al actualizar cantidad: " + err.message
+        });
+    }
+});
+
+// Endpoint: Eliminar producto del carrito
+app.delete("/api/carrito/eliminar", async (req, res) => {
+    const { usuarioID, detalleID } = req.body;
+
+    if (!usuarioID || !detalleID) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "Faltan parámetros: usuarioID y detalleID son obligatorios."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioID", sql.NChar(8), usuarioID)
+            .input("DetalleID", sql.BigInt, detalleID)
+            .execute("Inventario.USP_Carrito_EliminarProducto");
+
+        const cabecera = result.recordsets[0] || [];
+        const detalle = result.recordsets[1] || [];
+
+        res.status(200).json({
+            estatus: "success",
+            mensaje: "Producto eliminado del carrito.",
+            data: {
+                carrito: cabecera[0] || null,
+                items: detalle
+            }
+        });
+    } catch (err) {
+        console.error("Error en /api/carrito/eliminar:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al eliminar producto: " + err.message
+        });
+    }
+});
+
+// Endpoint: Limpiar carrito
+app.delete("/api/carrito/limpiar", async (req, res) => {
+    const { usuarioID } = req.body;
+
+    if (!usuarioID) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "El usuarioID es obligatorio."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        await pool.request()
+            .input("UsuarioID", sql.NChar(8), usuarioID)
+            .execute("Inventario.USP_Carrito_Limpiar");
+
+        res.status(200).json({
+            estatus: "success",
+            mensaje: "Carrito limpiado correctamente."
+        });
+    } catch (err) {
+        console.error("Error en /api/carrito/limpiar:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al limpiar el carrito: " + err.message
+        });
+    }
+});
+
+// Endpoint: Confirmar venta desde el carrito
+app.post("/api/carrito/confirmar-venta", async (req, res) => {
+    const { usuarioID } = req.body;
+
+    if (!usuarioID) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "El usuarioID es obligatorio."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("UsuarioID", sql.NChar(8), usuarioID)
+            .execute("Inventario.USP_Carrito_ConfirmarVenta");
+
+        const venta = result.recordset[0];
+
+        res.status(200).json({
+            estatus: "success",
+            mensaje: venta.Mensaje,
+            data: {
+                ventaID: venta.VentaID,
+                carritoID: venta.CarritoID,
+                total: venta.Total,
+                fechaVenta: venta.FechaVenta
+            }
+        });
+    } catch (err) {
+        console.error("Error en /api/carrito/confirmar-venta:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al confirmar la venta: " + err.message
+        });
+    }
+});
+
+// =========================================================================
+// MÓDULO 6: HISTORIAL DE VENTAS
+// =========================================================================
+
+// Endpoint: Obtener historial de ventas
+app.get("/api/ventas/historial", async (req, res) => {
+    const { usuarioID, fechaInicio, fechaFin, ventaID } = req.query;
+
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+
+        if (usuarioID) {
+            request.input("UsuarioID", sql.NChar(8), usuarioID);
+        }
+        if (fechaInicio) {
+            request.input("FechaInicio", sql.Date, fechaInicio);
+        }
+        if (fechaFin) {
+            request.input("FechaFin", sql.Date, fechaFin);
+        }
+        if (ventaID) {
+            request.input("VentaID", sql.Int, parseInt(ventaID));
+        }
+
+        const result = await request.execute("Inventario.USP_Venta_ObtenerHistorial");
+
+        res.status(200).json({
+            estatus: "success",
+            data: result.recordset
+        });
+    } catch (err) {
+        console.error("Error en /api/ventas/historial:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al obtener historial de ventas: " + err.message
+        });
+    }
+});
+
+// Endpoint: Obtener detalle de una venta
+app.get("/api/ventas/detalle/:ventaID", async (req, res) => {
+    const { ventaID } = req.params;
+
+    if (!ventaID) {
+        return res.status(400).json({
+            estatus: "error",
+            mensaje: "El ventaID es obligatorio."
+        });
+    }
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input("VentaID", sql.Int, parseInt(ventaID))
+            .execute("Inventario.USP_Venta_ObtenerDetalle");
+
+        const cabecera = result.recordsets[0] || [];
+        const detalle = result.recordsets[1] || [];
+
+        if (cabecera.length === 0) {
+            return res.status(404).json({
+                estatus: "error",
+                mensaje: "Venta no encontrada."
+            });
+        }
+
+        res.status(200).json({
+            estatus: "success",
+            data: {
+                venta: cabecera[0],
+                items: detalle
+            }
+        });
+    } catch (err) {
+        console.error("Error en /api/ventas/detalle:", err.message);
+        res.status(500).json({
+            estatus: "error",
+            mensaje: "Error al obtener detalle de la venta: " + err.message
+        });
+    }
+});
+
+
+// ==========================================
+// REPORTE DE VENTAS
+// ==========================================
+app.post('/api/reportes/ventas', async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin, tipoFiltro, usuarioID } = req.body;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('FechaInicio', sql.Date, fechaInicio || null)
+            .input('FechaFin', sql.Date, fechaFin || null)
+            .input('TipoFiltro', sql.NVarChar(20), tipoFiltro || 'MES')
+            .input('UsuarioID', sql.NChar(8), usuarioID || null)
+            .execute('Inventario.USP_Reporte_Ventas');
+
+        // El SP devuelve 4 conjuntos de resultados
+        const resumen = result.recordsets[0] || [];
+        const topProductos = result.recordsets[1] || [];
+        const ventasPorDia = result.recordsets[2] || [];
+        const ventasPorTipo = result.recordsets[3] || [];
+
+        res.json({
+            success: true,
+            data: {
+                resumen: resumen[0] || {},
+                topProductos,
+                ventasPorDia,
+                ventasPorTipo
+            }
+        });
+    } catch (error) {
+        console.error('Error en reporte ventas:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ==========================================
+// REPORTE DE PRODUCCIÓN
+// ==========================================
+app.post('/api/reportes/produccion', async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin, tipoFiltro, usuarioID } = req.body;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('FechaInicio', sql.Date, fechaInicio || null)
+            .input('FechaFin', sql.Date, fechaFin || null)
+            .input('TipoFiltro', sql.NVarChar(20), tipoFiltro || 'MES')
+            .input('UsuarioID', sql.NChar(8), usuarioID || null)
+            .execute('Inventario.USP_Reporte_Produccion');
+
+        const resumen = result.recordsets[0] || [];
+        const topModelos = result.recordsets[1] || [];
+        const produccionPorDia = result.recordsets[2] || [];
+        const consumoMateriales = result.recordsets[3] || [];
+
+        res.json({
+            success: true,
+            data: {
+                resumen: resumen[0] || {},
+                topModelos,
+                produccionPorDia,
+                consumoMateriales
+            }
+        });
+    } catch (error) {
+        console.error('Error en reporte producción:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ==========================================
+// REPORTE COMPARATIVO
+// ==========================================
+app.post('/api/reportes/comparativo', async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin } = req.body;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('FechaInicio', sql.Date, fechaInicio || null)
+            .input('FechaFin', sql.Date, fechaFin || null)
+            .execute('Inventario.USP_Reporte_Comparativo');
+
+        res.json({
+            success: true,
+            data: result.recordsets[0] || []
+        });
+    } catch (error) {
+        console.error('Error en reporte comparativo:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ==========================================
+// REPORTE DE STOCK
+// ==========================================
+app.post('/api/reportes/stock', async (req, res) => {
+    try {
+        const { tipo } = req.body;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('Tipo', sql.NVarChar(20), tipo || 'TODOS')
+            .execute('Inventario.USP_Reporte_Stock');
+
+        res.json({
+            success: true,
+            data: result.recordsets[0] || []
+        });
+    } catch (error) {
+        console.error('Error en reporte stock:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ==========================================
+// REPORTE DE VENTAS DETALLADO (PDF)
+// ==========================================
+app.post('/api/reportes/ventas-detalle', async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin, usuarioID } = req.body;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('FechaInicio', sql.Date, fechaInicio || null)
+            .input('FechaFin', sql.Date, fechaFin || null)
+            .input('UsuarioID', sql.NChar(8), usuarioID || null)
+            .execute('Inventario.USP_Reporte_Ventas_Detalle');
+
+        res.json({
+            success: true,
+            data: result.recordsets[0] || []
+        });
+    } catch (error) {
+        console.error('Error en detalle ventas:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ==========================================
+// REPORTE DE PRODUCCIÓN DETALLADO (PDF)
+// ==========================================
+app.post('/api/reportes/produccion-detalle', async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin, usuarioID } = req.body;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('FechaInicio', sql.Date, fechaInicio || null)
+            .input('FechaFin', sql.Date, fechaFin || null)
+            .input('UsuarioID', sql.NChar(8), usuarioID || null)
+            .execute('Inventario.USP_Reporte_Produccion_Detalle');
+
+        const cabecera = result.recordsets[0] || [];
+        const materiales = result.recordsets[1] || [];
+
+        res.json({
+            success: true,
+            data: {
+                cabecera,
+                materiales
+            }
+        });
+    } catch (error) {
+        console.error('Error en detalle producción:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 // =========================================================================
 // Encendido del Servidor HTTP
