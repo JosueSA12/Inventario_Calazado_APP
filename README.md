@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="baner_taller_calzado.png" alt="Sistema de Gestión de Taller de Calzado" width="100%" style="border-radius: 12px;">
+  <img src="docs/baner_taller_calzado.png" alt="Sistema de Gestión de Taller de Calzado" width="100%" style="border-radius: 12px;">
 </p>
 
 # Sistema de Gestión de Inventario y Producción para Taller de Calzado
@@ -24,11 +24,6 @@
 - [Características Principales](#características-principales)
 - [Tecnologías Utilizadas](#tecnologías-utilizadas)
 - [Guía de Instalación](#guía-de-instalación)
-- [Estructura de la Base de Datos](#estructura-de-la-base-de-datos)
-- [Flujo de Trabajo](#flujo-de-trabajo)
-- [Capturas de Pantalla](#capturas-de-pantalla)
-- [Mejoras Futuras](#mejoras-futuras)
-- [Licencia](#licencia)
 
 ---
 
