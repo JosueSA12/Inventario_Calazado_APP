@@ -758,12 +758,10 @@ class _TarjetaCalzadoState extends State<TarjetaCalzado> {
 
                 const SizedBox(height: 8),
 
-                // BOTONES
-                Column(
+                Row(
                   children: [
-                    // Botón "Añadir al Carrito"
-                    SizedBox(
-                      width: double.infinity,
+                    // Botón Añadir al Carrito
+                    Expanded(
                       child: ElevatedButton.icon(
                         onPressed: stock > 0
                             ? () => _agregarAlCarrito(context)
@@ -781,31 +779,31 @@ class _TarjetaCalzadoState extends State<TarjetaCalzado> {
                                 Icons.add_shopping_cart_rounded,
                                 size: 16,
                               ),
-                        label: Text(
-                          stock > 0 ? 'Añadir al Carrito' : 'Sin Stock',
-                          style: const TextStyle(
+                        label: const Text(
+                          "Carrito",
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 11,
+                            fontSize: 12,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _agregando
                               ? Colors.blue.shade400
                               : (stock > 0
-                                    ? Colors.blue.shade700
+                                    ? const Color.fromARGB(255, 16, 209, 103)
                                     : Colors.grey.shade400),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
+
+                    const SizedBox(width: 8),
                     // Botón Producir
-                    SizedBox(
-                      width: double.infinity,
+                    Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
                           final calzadoSeleccionado = {
@@ -821,16 +819,16 @@ class _TarjetaCalzadoState extends State<TarjetaCalzado> {
                         },
                         icon: const Icon(Icons.factory_rounded, size: 16),
                         label: const Text(
-                          'Producir',
+                          "Producir",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 11,
+                            fontSize: 12,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.purple.shade700,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),

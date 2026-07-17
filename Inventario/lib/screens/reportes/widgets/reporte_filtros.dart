@@ -202,6 +202,7 @@ class _ReporteFiltrosState extends State<ReporteFiltros> {
       );
 
       final notificacion = Notificacion(
+        id: 'error_filtros_${DateTime.now().millisecondsSinceEpoch}', // ✅ Agregar id
         titulo: 'Error en Reportes',
         mensaje:
             'Debes seleccionar una fecha de inicio y fin para aplicar el filtro.',

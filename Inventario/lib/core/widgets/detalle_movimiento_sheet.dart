@@ -25,7 +25,7 @@ class DetalleMovimientoSheet extends StatelessWidget {
     final bool esVenta = movimiento.toLowerCase().contains("venta");
     final bool esProduccion =
         movimiento.toLowerCase().contains("producción") ||
-        movimiento.toLowerCase().contains("terminad");
+        movimiento.toLowerCase().contains("terminado");
     final bool esAbastecimiento =
         movimiento.toLowerCase().contains("ingreso") ||
         movimiento.toLowerCase().contains("abastecimiento");
@@ -166,7 +166,7 @@ class DetalleMovimientoSheet extends StatelessWidget {
     final lower = movimiento.toLowerCase();
     if (lower.contains("venta")) {
       return "VENTA REALIZADA";
-    } else if (lower.contains("producción") || lower.contains("terminad")) {
+    } else if (lower.contains("producción") || lower.contains("terminado")) {
       return "PRODUCCIÓN";
     } else if (lower.contains("ingreso") || lower.contains("abastecimiento")) {
       return "ABASTECIMIENTO";

@@ -1,8 +1,9 @@
+
 USE [db_acbcc3_dbtaller] 
 GO
 
 -- =========================================================================
--- 1. CREACIÓN DE SCHEMAS
+-- CREACIÓN DE SCHEMAS
 -- =========================================================================
 IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'Seguridad')
 BEGIN
@@ -16,9 +17,9 @@ BEGIN
 END
 GO
 
--- =========================================================================
--- 2. CREACIÓN DE TABLAS
--- =========================================================================
+-- ====================================
+-- 2. TABLAS
+-- ====================================
 
 -- 2.1 Seguridad.TipoUsuario
 CREATE TABLE Seguridad.TipoUsuario (
@@ -77,7 +78,21 @@ CREATE TABLE Inventario.TipoMovimiento (
 )
 GO
 
--- 2.6 Inventario.HistorialMaterial
+-- 2.6 Inventario.CalzadoMaterial
+CREATE TABLE Inventario.CalzadoMaterial (
+    CalzadoMaterialID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    CalzadoCodigo NCHAR(8) NOT NULL,
+    MaterialCodigo NCHAR(8) NOT NULL,
+    CantidadPorPar DECIMAL(10,2) NOT NULL CHECK (CantidadPorPar > 0),
+    FechaCreacion DATETIME DEFAULT GETDATE(),
+    UsuarioCreacion NCHAR(8) NOT NULL,
+    CONSTRAINT CalzadoMaterial_CalzadoFK FOREIGN KEY (CalzadoCodigo) REFERENCES Inventario.Calzado(CalzadoCodigo),
+    CONSTRAINT CalzadoMaterial_MaterialFK FOREIGN KEY (MaterialCodigo) REFERENCES Inventario.Material(MaterialCodigo),
+    CONSTRAINT CalzadoMaterial_Unique UNIQUE (CalzadoCodigo, MaterialCodigo)
+)
+GO
+
+-- 2.7 Inventario.HistorialMaterial
 CREATE TABLE Inventario.HistorialMaterial (
     HistorialMaterialId BIGINT IDENTITY(1,1) PRIMARY KEY,
     MaterialCodigo NCHAR(8) NOT NULL,
@@ -92,7 +107,7 @@ CREATE TABLE Inventario.HistorialMaterial (
 )
 GO
 
--- 2.7 Inventario.HistorialCalzado
+-- 2.8 Inventario.HistorialCalzado
 CREATE TABLE Inventario.HistorialCalzado (
     HistorialCalzadoId BIGINT IDENTITY(1,1) PRIMARY KEY,
     CalzadoCodigo NCHAR(8) NOT NULL,
@@ -106,7 +121,7 @@ CREATE TABLE Inventario.HistorialCalzado (
 )
 GO
 
--- 2.8 Inventario.OrdenProduccion
+-- 2.9 Inventario.OrdenProduccion
 CREATE TABLE Inventario.OrdenProduccion (
     OrdenID INT IDENTITY(1,1) PRIMARY KEY,
     CalzadoCodigo NCHAR(8) NOT NULL,
@@ -119,7 +134,7 @@ CREATE TABLE Inventario.OrdenProduccion (
 )
 GO
 
--- 2.9 Inventario.OrdenProduccionDetalle
+-- 2.10 Inventario.OrdenProduccionDetalle
 CREATE TABLE Inventario.OrdenProduccionDetalle (
     DetalleID BIGINT IDENTITY(1,1) PRIMARY KEY,
     OrdenID INT NOT NULL,
@@ -130,7 +145,7 @@ CREATE TABLE Inventario.OrdenProduccionDetalle (
 )
 GO
 
--- 2.10 Inventario.Carrito
+-- 2.11 Inventario.Carrito
 CREATE TABLE Inventario.Carrito (
     CarritoID INT IDENTITY(1,1) PRIMARY KEY,
     UsuarioID NCHAR(8) NOT NULL,
@@ -142,7 +157,7 @@ CREATE TABLE Inventario.Carrito (
 )
 GO
 
--- 2.11 Inventario.CarritoDetalle
+-- 2.12 Inventario.CarritoDetalle
 CREATE TABLE Inventario.CarritoDetalle (
     DetalleID BIGINT IDENTITY(1,1) PRIMARY KEY,
     CarritoID INT NOT NULL,
@@ -156,7 +171,7 @@ CREATE TABLE Inventario.CarritoDetalle (
 )
 GO
 
--- 2.12 Inventario.Venta
+-- 2.13 Inventario.Venta
 CREATE TABLE Inventario.Venta (
     VentaID INT IDENTITY(1,1) PRIMARY KEY,
     UsuarioID NCHAR(8) NOT NULL,
@@ -169,7 +184,7 @@ CREATE TABLE Inventario.Venta (
 )
 GO
 
--- 2.13 Inventario.VentaDetalle
+-- 2.14 Inventario.VentaDetalle
 CREATE TABLE Inventario.VentaDetalle (
     VentaDetalleID BIGINT IDENTITY(1,1) PRIMARY KEY,
     VentaID INT NOT NULL,
@@ -183,85 +198,81 @@ CREATE TABLE Inventario.VentaDetalle (
 GO
 
 -- =========================================================================
--- 3. INSERCIÓN DE DATOS INICIALES
+-- 3. PROCEDIMIENTOS ALMACENADOS (ORDENADOS POR MÓDULO)
 -- =========================================================================
 
--- 3.1 Tipos de Usuario
-INSERT INTO Seguridad.TipoUsuario (TipoUsuarioCodigo, TipoUsuarioDescription) VALUES
-    ('ADM01', 'Administrador General'),
-    ('EMP01', 'Operario / Artesano de Taller')
+-- ==========================================
+-- SEGURIDAD
+-- ==========================================
+
+-- 3.1 Validar Acceso
+CREATE OR ALTER PROCEDURE Seguridad.USP_Usuario_ValidarAcceso
+    @UsuarioInput NVARCHAR(100),
+    @UsuarioPassword NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON
+    IF EXISTS (
+        SELECT 1
+        FROM Seguridad.Usuario
+        WHERE (UsuarioLogin = @UsuarioInput OR UsuarioCorreo = @UsuarioInput)
+          AND UsuarioPassword = @UsuarioPassword
+          AND UsuarioEstado = 'A'
+    )
+    BEGIN
+        SELECT
+            'EXITO' AS Resultado,
+            RTRIM(UsuarioID) AS UsuarioID,
+            UsuarioNombre,
+            RTRIM(UsuarioLogin) AS UsuarioLogin,
+            RTRIM(UsuarioCorreo) AS UsuarioCorreo,
+            RTRIM(TipoUsuarioCodigo) AS TipoUsuarioCodigo
+        FROM Seguridad.Usuario
+        WHERE (UsuarioLogin = @UsuarioInput OR UsuarioCorreo = @UsuarioInput)
+          AND UsuarioPassword = @UsuarioPassword
+    END
+    ELSE
+    BEGIN
+        SELECT 'ERROR' AS Resultado, 'Usuario/Correo o contraseña incorrectos' AS Mensaje
+    END
+END
 GO
 
--- 3.2 Usuarios base
-INSERT INTO Seguridad.Usuario (UsuarioID, UsuarioNombre, UsuarioLogin, UsuarioPassword, UsuarioCorreo, TipoUsuarioCodigo) VALUES
-    ('USR00001', 'Jorge Luis', 'admin', '123', 'admin@taller.com', 'ADM01'),
-    ('USR00002', 'Carlos Rodriguez', 'empleado', '456', 'empleado@taller.com', 'EMP01')
+-- 3.2 Restablecer Contraseña
+CREATE OR ALTER PROCEDURE Seguridad.USP_Usuario_RestablecerPassword
+    @UsuarioLogin NVARCHAR(20),
+    @NuevaPassword NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON
+    BEGIN TRY
+        BEGIN TRANSACTION
+
+        IF NOT EXISTS (SELECT 1 FROM Seguridad.Usuario WHERE UsuarioLogin = @UsuarioLogin AND UsuarioEstado = 'A')
+        BEGIN
+            RAISERROR('El nombre de usuario especificado no existe o está inactivo.', 16, 1)
+        END
+
+        UPDATE Seguridad.Usuario
+        SET UsuarioPassword = @NuevaPassword
+        WHERE UsuarioLogin = @UsuarioLogin
+
+        COMMIT TRANSACTION
+        SELECT 'EXITO' AS Resultado, 'La contraseña ha sido restablecida correctamente.' AS Mensaje
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
+        RAISERROR(@ErrorMessage, 16, 1)
+    END CATCH
+END
 GO
 
--- 3.3 Catálogo de Materiales
-INSERT INTO Inventario.Material (MaterialCodigo, MaterialNombre, MaterialCategoria, MaterialCantidad, MaterialMedida, MaterialProveedor) VALUES
-    ('MAT00001', 'Cuero Badana Marrón Premium', 'Cuero', 18.50, 'Metros', 'Curtiembre San José'),
-    ('MAT00002', 'Suelas de Caucho Negro N° 42', 'Suelas', 3.00, 'Pares', 'Suelas del Norte'),
-    ('MAT00003', 'Hilo Nylon Italiano N° 40', 'Hilos', 12.00, 'Bobinas', 'Hilos Tex S.A.'),
-    ('MAT00004', 'Pegamento de Contacto Extra XL', 'Pegamentos / Tintes', 1.20, 'Litros', 'Químicos Distribuidora'),
-    ('MAT00005', 'Ojales de Bronce Pavonado 8mm', 'Herrajes / Ojales', 500.00, 'Unidades', 'Herrajes Perú SRL'),
-    ('MAT00006', 'Cuero de Cocodrilo', 'Cuero', 20.00, 'Metros', 'Josue Fernando Solano SAC')
-GO
+-- ==========================================
+-- DASHBOARD
+-- ==========================================
 
--- 3.4 Catálogo de Calzado
-INSERT INTO Inventario.Calzado (CalzadoCodigo, CalzadoModelo, CalzadoTipo, CalzadoColor, CalzadoTalla, CalzadoStock, CalzadoPrecioVenta) VALUES	
-    ('ZAP00001', 'Bota Casual Ranger', 'bota', 'Marrón', 40, 15, 89.99),
-    ('ZAP00002', 'Bota Casual Ranger', 'bota', 'Marrón', 41, 24, 89.99),
-    ('ZAP00003', 'Bota Casual Ranger', 'bota', 'Negro', 39, 8, 89.99),
-    ('ZAP00004', 'Bota Casual Ranger', 'bota', 'Negro', 42, 12, 89.99),
-    ('ZAP00005', 'Mocasín Ejecutivo Premium', 'formal', 'Negro', 42, 8, 110.00),
-    ('ZAP00006', 'Mocasín Ejecutivo Premium', 'formal', 'Negro', 40, 5, 110.00),
-    ('ZAP00007', 'Mocasín Ejecutivo Premium', 'formal', 'Marrón', 41, 6, 115.00),
-    ('ZAP00008', 'Zapatilla Urbana Canvas', 'urbano', 'Blanco', 38, 4, 65.50),
-    ('ZAP00009', 'Zapatilla Urbana Canvas', 'urbano', 'Blanco', 39, 10, 65.50),
-    ('ZAP00010', 'Zapatilla Urbana Canvas', 'urbano', 'Negro', 40, 15, 65.50),
-    ('ZAP00011', 'Bota Militar', 'bota', 'Negro', 40, 15, 125.00),
-    ('ZAP00012', 'Bota Militar', 'bota', 'Marrón', 41, 3, 125.00),
-    ('ZAP00013', 'Stiletto Gala Leather', 'tacos', 'Negro', 36, 12, 140.00),
-    ('ZAP00014', 'Stiletto Gala Leather', 'tacos', 'Blanco', 37, 2, 140.00),
-    ('ZAP00015', 'Sandalia Verano Confort', 'sandalia', 'Marrón', 37, 20, 45.00),
-    ('ZAP00016', 'Sandalia Verano Confort', 'sandalia', 'Blanco', 38, 14, 45.00),
-    ('ZAP00017', 'Zapato Derby Clásico', 'formal', 'Negro', 41, 10, 95.00),
-    ('ZAP00018', 'Zapato Derby Clásico', 'formal', 'Marrón', 42, 3, 98.00),
-    ('ZAP00019', 'Zapatilla Runner Pro', 'deportivo', 'Gris', 41, 18, 135.00),
-    ('ZAP00020', 'Zapatilla Runner Pro', 'deportivo', 'Azul', 42, 7, 135.00),
-    ('ZAP00021', 'Botín Chelsea Nobuck', 'bota', 'Marrón', 40, 9, 150.00),
-    ('ZAP00022', 'Botín Chelsea Nobuck', 'bota', 'Negro', 41, 11, 150.00),
-    ('ZAP00023', 'Mocasín Driver Casual', 'urbano', 'Azul', 40, 14, 79.90),
-    ('ZAP00024', 'Mocasín Driver Casual', 'urbano', 'Marrón', 39, 6, 79.90)
-GO
-
--- 3.5 Tipos de Movimientos
-INSERT INTO Inventario.TipoMovimiento (TipoMovimientoCodigo, TipoMovimientoDescripcion, TipoMovimientoFactor) VALUES
-    ('E01', 'Abastecimiento de Materiales', 1),
-    ('E02', 'Entrada por Producción Terminada', 1),
-    ('S01', 'Salida por Consumo de Taller', -1),
-    ('S02', 'Salida por Venta de Producto', -1),
-    ('S03', 'Descarte de Materiales', -1)
-GO
-
--- 3.6 Historial Material
-INSERT INTO Inventario.HistorialMaterial (MaterialCodigo, TipoMovimientoCodigo, HistorialMaterialCantidad, UsuarioID, HistorialMaterialNota) VALUES
-    ('MAT00001', 'S01', 5.50, 'USR00002', 'Consumo de cuero para lote de botas Ranger'),
-    ('MAT00004', 'E01', 10.00, 'USR00001', 'Abastecimiento mensual de pegamento de contacto')
-GO
-
--- 3.7 Historial Calzado
-INSERT INTO Inventario.HistorialCalzado (CalzadoCodigo, TipoMovimientoCodigo, HistorialCalzadoCantidad, UsuarioID) VALUES
-    ('ZAP00001', 'E02', 10, 'USR00002'),
-    ('ZAP00004', 'S02', 2, 'USR00001')
-GO
-
--- =========================================================================
--- 4. PROCEDIMIENTOS ALMACENADOS
--- =========================================================================
-
--- 4.1 Dashboard - Obtener Resumen
+-- 4.1 Obtener Resumen
 CREATE OR ALTER PROCEDURE Inventario.USP_Dashboard_ObtenerResumen
 AS
 BEGIN
@@ -281,7 +292,7 @@ BEGIN
 END
 GO
 
--- 4.2 Dashboard - Listar Actividad Reciente
+-- 4.2 Listar Actividad Reciente
 CREATE OR ALTER PROCEDURE Inventario.USP_Dashboard_ListarActividadReciente
 AS
 BEGIN
@@ -289,222 +300,278 @@ BEGIN
     DECLARE @FechaActual DATE = CAST(GETDATE() AS DATE)
     
     SELECT
-        Actividad.Fecha,
-        Actividad.Tipo,
-        Actividad.Descripcion,
-        Actividad.Cantidad,
-        Actividad.Movimiento,
-        U.UsuarioNombre AS Encargado
-    FROM
-    (
-        SELECT
-            HM.HistorialMaterialFecha AS Fecha,
-            'Material' AS Tipo,
-            M.MaterialNombre AS Descripcion,
-            CONVERT(NVARCHAR(20), HM.HistorialMaterialCantidad) + ' ' + M.MaterialMedida AS Cantidad,
-            TM.TipoMovimientoDescripcion AS Movimiento,
-            HM.UsuarioID
-        FROM Inventario.HistorialMaterial HM
-        INNER JOIN Inventario.Material M ON HM.MaterialCodigo = M.MaterialCodigo
-        INNER JOIN Inventario.TipoMovimiento TM ON HM.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-        WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual
+        V.VentaID AS Id,
+        CAST(V.FechaVenta AS DATE) AS Fecha,
+        'VENTA' AS Tipo,
+        'Venta #' + CAST(V.VentaID AS NVARCHAR(10)) AS Descripcion,
+        CONVERT(NVARCHAR(20), SUM(VD.Cantidad)) + ' Pares' AS Cantidad,
+        'Total: S/.' + CONVERT(NVARCHAR(20), CAST(V.Total AS DECIMAL(10,2))) AS Movimiento,
+        U.UsuarioNombre AS Encargado,
+        V.VentaID AS ReferenciaId,
+        'VENTA' AS ReferenciaTipo
+    FROM Inventario.Venta V
+    INNER JOIN Seguridad.Usuario U ON V.UsuarioID = U.UsuarioID
+    INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID
+    WHERE CAST(V.FechaVenta AS DATE) = @FechaActual
+        AND V.Estado = 'A'
+    GROUP BY V.VentaID, V.FechaVenta, V.Total, U.UsuarioNombre
 
-        UNION ALL
+    UNION ALL
 
-        SELECT
-            HC.HistorialCalzadoFecha AS Fecha,
-            'Calzado' AS Tipo,
-            C.CalzadoModelo + ' (' + RTRIM(C.CalzadoColor) + ', Talla ' + CONVERT(NVARCHAR(3), C.CalzadoTalla) + ')' AS Descripcion,
-            CASE
-                WHEN HC.TipoMovimientoCodigo = 'S02'
-                THEN CONVERT(NVARCHAR(10), HC.HistorialCalzadoCantidad) + ' Pares (Subtotal: S/.' + CONVERT(NVARCHAR(20), CAST(HC.HistorialCalzadoCantidad * C.CalzadoPrecioVenta AS DECIMAL(10,2))) + ')'
-                ELSE CONVERT(NVARCHAR(20), HC.HistorialCalzadoCantidad) + ' Pares'
-            END AS Cantidad,
-            TM.TipoMovimientoDescripcion AS Movimiento,
-            HC.UsuarioID
-        FROM Inventario.HistorialCalzado HC
-        INNER JOIN Inventario.Calzado C ON HC.CalzadoCodigo = C.CalzadoCodigo
-        INNER JOIN Inventario.TipoMovimiento TM ON HC.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-        WHERE CAST(HC.HistorialCalzadoFecha AS DATE) = @FechaActual
-    ) AS Actividad
-    INNER JOIN Seguridad.Usuario U ON Actividad.UsuarioID = U.UsuarioID
-    ORDER BY Actividad.Fecha DESC
+    SELECT
+        O.OrdenID AS Id,
+        CAST(O.OrdenFecha AS DATE) AS Fecha,
+        'PRODUCCION' AS Tipo,
+        'Orden #' + CAST(O.OrdenID AS NVARCHAR(10)) + ' - ' + C.CalzadoModelo AS Descripcion,
+        CONVERT(NVARCHAR(20), O.CantidadPares) + ' Pares' AS Cantidad,
+        'Produccion: ' + CAST(O.CantidadPares AS NVARCHAR(10)) + ' pares' AS Movimiento,
+        U.UsuarioNombre AS Encargado,
+        O.OrdenID AS ReferenciaId,
+        'PRODUCCION' AS ReferenciaTipo
+    FROM Inventario.OrdenProduccion O
+    INNER JOIN Seguridad.Usuario U ON O.UsuarioID = U.UsuarioID
+    INNER JOIN Inventario.Calzado C ON O.CalzadoCodigo = C.CalzadoCodigo
+    WHERE CAST(O.OrdenFecha AS DATE) = @FechaActual
+        AND O.OrdenEstado = 'A'
+
+    ORDER BY Id DESC 
 END
 GO
 
--- 4.3 Dashboard - Filtrar Movimientos
+-- 4.3 Filtrar Movimientos
 CREATE OR ALTER PROCEDURE Inventario.USP_Dashboard_FiltrarMovimientos
     @TipoFiltro NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON
-    DECLARE @TipoMovimientoCodigo NCHAR(3)
     DECLARE @FechaActual DATE = CAST(GETDATE() AS DATE)
     
     IF @TipoFiltro = 'VENTA'
-        SET @TipoMovimientoCodigo = 'S02'
-    ELSE IF @TipoFiltro = 'PRODUCCION'
-        SET @TipoMovimientoCodigo = 'E02'
-    ELSE IF @TipoFiltro = 'ABASTECIMIENTO'
+    BEGIN
+        SELECT
+            V.VentaID AS Id,
+            CAST(V.FechaVenta AS DATE) AS Fecha,
+            'VENTA' AS Tipo,
+            'Venta #' + CAST(V.VentaID AS NVARCHAR(10)) AS Descripcion,
+            CONVERT(NVARCHAR(20), SUM(VD.Cantidad)) + ' Pares' AS Cantidad,
+            'Total: S/.' + CONVERT(NVARCHAR(20), CAST(V.Total AS DECIMAL(10,2))) AS Movimiento,
+            U.UsuarioNombre AS Encargado,
+            V.VentaID AS ReferenciaId,
+            'VENTA' AS ReferenciaTipo
+        FROM Inventario.Venta V
+        INNER JOIN Seguridad.Usuario U ON V.UsuarioID = U.UsuarioID
+        INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID
+        WHERE CAST(V.FechaVenta AS DATE) = @FechaActual
+            AND V.Estado = 'A'
+        GROUP BY V.VentaID, V.FechaVenta, V.Total, U.UsuarioNombre
+        ORDER BY V.VentaID DESC
+        RETURN
+    END
+
+    IF @TipoFiltro = 'PRODUCCION'
+    BEGIN
+        SELECT
+            O.OrdenID AS Id,
+            CAST(O.OrdenFecha AS DATE) AS Fecha,
+            'PRODUCCION' AS Tipo,
+            'Orden #' + CAST(O.OrdenID AS NVARCHAR(10)) + ' - ' + C.CalzadoModelo AS Descripcion,
+            CONVERT(NVARCHAR(20), O.CantidadPares) + ' Pares' AS Cantidad,
+            'Produccion: ' + CAST(O.CantidadPares AS NVARCHAR(10)) + ' pares' AS Movimiento,
+            U.UsuarioNombre AS Encargado,
+            O.OrdenID AS ReferenciaId,
+            'PRODUCCION' AS ReferenciaTipo
+        FROM Inventario.OrdenProduccion O
+        INNER JOIN Seguridad.Usuario U ON O.UsuarioID = U.UsuarioID
+        INNER JOIN Inventario.Calzado C ON O.CalzadoCodigo = C.CalzadoCodigo
+        WHERE CAST(O.OrdenFecha AS DATE) = @FechaActual
+            AND O.OrdenEstado = 'A'
+        ORDER BY O.OrdenFecha DESC, O.OrdenID DESC 
+        RETURN
+    END
+    
+    DECLARE @TipoMovimientoCodigo NCHAR(3)
+    
+    IF @TipoFiltro = 'ABASTECIMIENTO'
         SET @TipoMovimientoCodigo = 'E01'
     ELSE IF @TipoFiltro = 'CONSUMO'
         SET @TipoMovimientoCodigo = 'S01'
     ELSE IF @TipoFiltro = 'DESCARTE'
         SET @TipoMovimientoCodigo = 'S03'
 
-    SELECT
-        Actividad.Fecha,
-        Actividad.Tipo,
-        Actividad.Descripcion,
-        Actividad.Cantidad,
-        Actividad.Movimiento,
-        U.UsuarioNombre AS Encargado
-    FROM
-    (
+    IF @TipoMovimientoCodigo IS NOT NULL
+    BEGIN
         SELECT
-            HM.HistorialMaterialFecha AS Fecha,
+            CAST(HM.HistorialMaterialId AS INT) AS Id,
+            CAST(HM.HistorialMaterialFecha AS DATE) AS Fecha,
             'Material' AS Tipo,
             M.MaterialNombre AS Descripcion,
             CONVERT(NVARCHAR(20), HM.HistorialMaterialCantidad) + ' ' + M.MaterialMedida AS Cantidad,
             TM.TipoMovimientoDescripcion AS Movimiento,
-            HM.UsuarioID,
-            TM.TipoMovimientoCodigo
+            U.UsuarioNombre AS Encargado,
+            NULL AS ReferenciaId,
+            NULL AS ReferenciaTipo
         FROM Inventario.HistorialMaterial HM
         INNER JOIN Inventario.Material M ON HM.MaterialCodigo = M.MaterialCodigo
         INNER JOIN Inventario.TipoMovimiento TM ON HM.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
+        INNER JOIN Seguridad.Usuario U ON HM.UsuarioID = U.UsuarioID
         WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual
-          AND (@TipoMovimientoCodigo IS NULL OR TM.TipoMovimientoCodigo = @TipoMovimientoCodigo)
+            AND TM.TipoMovimientoCodigo = @TipoMovimientoCodigo
+        ORDER BY HM.HistorialMaterialFecha DESC, HM.HistorialMaterialId DESC
+        RETURN
+    END
 
-        UNION ALL
-
-        SELECT
-            HC.HistorialCalzadoFecha AS Fecha,
-            'Calzado' AS Tipo,
-            C.CalzadoModelo + ' (' + RTRIM(C.CalzadoColor) + ', Talla ' + CONVERT(NVARCHAR(3), C.CalzadoTalla) + ')' AS Descripcion,
-            CASE
-                WHEN HC.TipoMovimientoCodigo = 'S02'
-                THEN CONVERT(NVARCHAR(10), HC.HistorialCalzadoCantidad) + ' Pares (Subtotal: S/.' + CONVERT(NVARCHAR(20), CAST(HC.HistorialCalzadoCantidad * C.CalzadoPrecioVenta AS DECIMAL(10,2))) + ')'
-                ELSE CONVERT(NVARCHAR(20), HC.HistorialCalzadoCantidad) + ' Pares'
-            END AS Cantidad,
-            TM.TipoMovimientoDescripcion AS Movimiento,
-            HC.UsuarioID,
-            TM.TipoMovimientoCodigo
-        FROM Inventario.HistorialCalzado HC
-        INNER JOIN Inventario.Calzado C ON HC.CalzadoCodigo = C.CalzadoCodigo
-        INNER JOIN Inventario.TipoMovimiento TM ON HC.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-        WHERE CAST(HC.HistorialCalzadoFecha AS DATE) = @FechaActual
-          AND (@TipoMovimientoCodigo IS NULL OR TM.TipoMovimientoCodigo = @TipoMovimientoCodigo)
-    ) AS Actividad
-    INNER JOIN Seguridad.Usuario U ON Actividad.UsuarioID = U.UsuarioID
-    ORDER BY Actividad.Fecha DESC
+    SELECT
+        NULL AS Id,
+        NULL AS Fecha,
+        NULL AS Tipo,
+        NULL AS Descripcion,
+        NULL AS Cantidad,
+        NULL AS Movimiento,
+        NULL AS Encargado,
+        NULL AS ReferenciaId,
+        NULL AS ReferenciaTipo
+    WHERE 1 = 0
 END
 GO
 
--- 4.4 Dashboard - Obtener KPIs por Filtro
+-- 4.4 Obtener KPIs por Filtro
 CREATE OR ALTER PROCEDURE Inventario.USP_Dashboard_ObtenerKPIsPorFiltro
     @TipoFiltro NVARCHAR(20) = NULL
 AS
 BEGIN
     SET NOCOUNT ON
-    DECLARE @TipoMovimientoCodigo NCHAR(3)
     DECLARE @FechaActual DATE = CAST(GETDATE() AS DATE)
+   
+    DECLARE @TotalMateriales INT
+    DECLARE @TotalModelos INT
+    DECLARE @AlertasCriticas INT
     
+    SELECT @TotalMateriales = COUNT(*) FROM Inventario.Material WHERE MaterialEstado = 'A'
+    SELECT @TotalModelos = COUNT(DISTINCT CalzadoModelo) FROM Inventario.Calzado WHERE CalzadoEstado = 'A'
+    SELECT @AlertasCriticas = COUNT(*) FROM Inventario.Material WHERE MaterialCantidad < 5.00 AND MaterialEstado = 'A'
+
     IF @TipoFiltro = 'VENTA'
-        SET @TipoMovimientoCodigo = 'S02'
-    ELSE IF @TipoFiltro = 'PRODUCCION'
-        SET @TipoMovimientoCodigo = 'E02'
-    ELSE IF @TipoFiltro = 'ABASTECIMIENTO'
-        SET @TipoMovimientoCodigo = 'E01'
-    ELSE IF @TipoFiltro = 'CONSUMO'
-        SET @TipoMovimientoCodigo = 'S01'
-    ELSE IF @TipoFiltro = 'DESCARTE'
-        SET @TipoMovimientoCodigo = 'S03'
+    BEGIN
+        SELECT
+            @TotalMateriales AS TotalMateriales,
+            @TotalModelos AS TotalModelos,
+            @AlertasCriticas AS AlertasCriticas,
+            
+            ISNULL((SELECT SUM(Total) FROM Inventario.Venta WHERE CAST(FechaVenta AS DATE) = @FechaActual AND Estado = 'A'), 0) AS IngresosTotales,
+            
+            ISNULL((SELECT SUM(VD.Cantidad) FROM Inventario.Venta V INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID WHERE CAST(V.FechaVenta AS DATE) = @FechaActual AND V.Estado = 'A'), 0) AS TotalCalzado,
+            
+            (SELECT TOP 1 C.CalzadoModelo + '|' + RTRIM(C.CalzadoColor) + '|' + CONVERT(NVARCHAR(3), C.CalzadoTalla) + '|' + CONVERT(NVARCHAR(10), SUM(VD.Cantidad))
+            FROM Inventario.Venta V INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID INNER JOIN Inventario.Calzado C ON VD.CalzadoCodigo = C.CalzadoCodigo
+            WHERE CAST(V.FechaVenta AS DATE) = @FechaActual AND V.Estado = 'A'
+            GROUP BY C.CalzadoModelo, C.CalzadoColor, C.CalzadoTalla
+            ORDER BY SUM(VD.Cantidad) DESC) AS ProductoMasVendido,
+            
+            0 AS TotalMovimientosMateriales,
+            0 AS TotalAbastecimiento,
+            0 AS TotalDescarte,
+            NULL AS MaterialMasConsumido,
+            0 AS TotalMovimientos
+        RETURN
+    END
+
+    IF @TipoFiltro = 'PRODUCCION'
+    BEGIN
+        SELECT
+            @TotalMateriales AS TotalMateriales,
+            @TotalModelos AS TotalModelos,
+            @AlertasCriticas AS AlertasCriticas,
+            
+            ISNULL((SELECT SUM(CantidadPares) FROM Inventario.OrdenProduccion WHERE CAST(OrdenFecha AS DATE) = @FechaActual AND OrdenEstado = 'A'), 0) AS TotalCalzado,
+            
+            0 AS IngresosTotales,
+            NULL AS ProductoMasVendido,
+            0 AS TotalMovimientosMateriales,
+            0 AS TotalAbastecimiento,
+            0 AS TotalDescarte,
+            NULL AS MaterialMasConsumido,
+            0 AS TotalMovimientos
+        RETURN
+    END
+
+    IF @TipoFiltro = 'ABASTECIMIENTO'
+    BEGIN
+        SELECT
+            @TotalMateriales AS TotalMateriales,
+            @TotalModelos AS TotalModelos,
+            @AlertasCriticas AS AlertasCriticas,
+            
+            ISNULL((SELECT SUM(HistorialMaterialCantidad) FROM Inventario.HistorialMaterial WHERE CAST(HistorialMaterialFecha AS DATE) = @FechaActual AND TipoMovimientoCodigo = 'E01'), 0) AS TotalAbastecimiento,
+            
+            0 AS IngresosTotales,
+            NULL AS ProductoMasVendido,
+            0 AS TotalCalzado,
+            0 AS TotalDescarte,
+            NULL AS MaterialMasConsumido,
+            0 AS TotalMovimientos
+        RETURN
+    END
+
+    IF @TipoFiltro = 'CONSUMO'
+    BEGIN
+        SELECT
+            @TotalMateriales AS TotalMateriales,
+            @TotalModelos AS TotalModelos,
+            @AlertasCriticas AS AlertasCriticas,
+            
+            ISNULL((SELECT SUM(HistorialMaterialCantidad) FROM Inventario.HistorialMaterial WHERE CAST(HistorialMaterialFecha AS DATE) = @FechaActual AND TipoMovimientoCodigo = 'S01'), 0) AS TotalMovimientos,
+            
+            (SELECT TOP 1 M.MaterialCategoria + '|' + M.MaterialNombre + '|' + CONVERT(NVARCHAR(10), SUM(HM.HistorialMaterialCantidad)) + ' ' + M.MaterialMedida
+            FROM Inventario.HistorialMaterial HM INNER JOIN Inventario.Material M ON HM.MaterialCodigo = M.MaterialCodigo
+            WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual AND HM.TipoMovimientoCodigo = 'S01'
+            GROUP BY M.MaterialCategoria, M.MaterialNombre, M.MaterialMedida
+            ORDER BY SUM(HM.HistorialMaterialCantidad) DESC) AS MaterialMasConsumido,
+            
+            0 AS IngresosTotales,
+            NULL AS ProductoMasVendido,
+            0 AS TotalCalzado,
+            0 AS TotalAbastecimiento,
+            0 AS TotalDescarte
+        RETURN
+    END
+
+    IF @TipoFiltro = 'DESCARTE'
+    BEGIN
+        SELECT
+            @TotalMateriales AS TotalMateriales,
+            @TotalModelos AS TotalModelos,
+            @AlertasCriticas AS AlertasCriticas,
+            
+            ISNULL((SELECT SUM(HistorialMaterialCantidad) FROM Inventario.HistorialMaterial WHERE CAST(HistorialMaterialFecha AS DATE) = @FechaActual AND TipoMovimientoCodigo = 'S03'), 0) AS TotalDescarte,
+            
+            0 AS IngresosTotales,
+            NULL AS ProductoMasVendido,
+            0 AS TotalCalzado,
+            0 AS TotalAbastecimiento,
+            0 AS TotalMovimientos,
+            NULL AS MaterialMasConsumido
+        RETURN
+    END
 
     SELECT
-        (SELECT COUNT(*) FROM Inventario.Material WHERE MaterialEstado = 'A') AS TotalMateriales,
-        (SELECT COUNT(*) FROM Inventario.Calzado WHERE CalzadoEstado = 'A') AS TotalModelos,
-        (SELECT COUNT(*) FROM Inventario.Material WHERE MaterialCantidad < 5.00 AND MaterialEstado = 'A') AS AlertasCriticas,
-        
-        ISNULL((
-            SELECT SUM(HistorialMaterialCantidad)
-            FROM Inventario.HistorialMaterial HM
-            INNER JOIN Inventario.TipoMovimiento TM ON HM.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-            WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual
-              AND (@TipoMovimientoCodigo IS NULL OR TM.TipoMovimientoCodigo = @TipoMovimientoCodigo)
-        ), 0) AS TotalMovimientosMateriales,
-        
-        ISNULL((
-            SELECT SUM(HistorialCalzadoCantidad)
-            FROM Inventario.HistorialCalzado HC
-            INNER JOIN Inventario.TipoMovimiento TM ON HC.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-            WHERE CAST(HC.HistorialCalzadoFecha AS DATE) = @FechaActual
-              AND (@TipoMovimientoCodigo IS NULL OR TM.TipoMovimientoCodigo = @TipoMovimientoCodigo)
-        ), 0) AS TotalMovimientosCalzado,
-        
-        ISNULL((
-            SELECT SUM(HC.HistorialCalzadoCantidad * C.CalzadoPrecioVenta)
-            FROM Inventario.HistorialCalzado HC
-            INNER JOIN Inventario.Calzado C ON HC.CalzadoCodigo = C.CalzadoCodigo
-            INNER JOIN Inventario.TipoMovimiento TM ON HC.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-            WHERE CAST(HC.HistorialCalzadoFecha AS DATE) = @FechaActual
-              AND TM.TipoMovimientoCodigo = 'S02'
-        ), 0) AS IngresosTotales,
-        
-        (
-            SELECT TOP 1
-                C.CalzadoModelo + '|' +
-                RTRIM(C.CalzadoColor) + '|' +
-                CONVERT(NVARCHAR(3), C.CalzadoTalla) + '|' +
-                CONVERT(NVARCHAR(10), SUM(HC.HistorialCalzadoCantidad))
-            FROM Inventario.HistorialCalzado HC
-            INNER JOIN Inventario.Calzado C ON HC.CalzadoCodigo = C.CalzadoCodigo
-            WHERE CAST(HC.HistorialCalzadoFecha AS DATE) = @FechaActual
-              AND HC.TipoMovimientoCodigo = 'S02'
-            GROUP BY C.CalzadoModelo, C.CalzadoColor, C.CalzadoTalla
-            ORDER BY SUM(HC.HistorialCalzadoCantidad) DESC
-        ) AS ProductoMasVendido,
-        
-        (
-            SELECT TOP 1
-                M.MaterialCategoria + '|' +
-                M.MaterialNombre + '|' +
-                CONVERT(NVARCHAR(10), SUM(HM.HistorialMaterialCantidad)) + ' ' + M.MaterialMedida
-            FROM Inventario.HistorialMaterial HM
-            INNER JOIN Inventario.Material M ON HM.MaterialCodigo = M.MaterialCodigo
-            WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual
-              AND HM.TipoMovimientoCodigo = 'S01'
-            GROUP BY M.MaterialCategoria, M.MaterialNombre, M.MaterialMedida
-            ORDER BY SUM(HM.HistorialMaterialCantidad) DESC
-        ) AS MaterialMasConsumido,
-        
-        ISNULL((
-            SELECT SUM(HistorialMaterialCantidad)
-            FROM Inventario.HistorialMaterial HM
-            INNER JOIN Inventario.TipoMovimiento TM ON HM.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-            WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual
-              AND TM.TipoMovimientoCodigo = 'E01'
-        ), 0) AS TotalAbastecimiento,
-        
-        ISNULL((
-            SELECT SUM(HistorialMaterialCantidad)
-            FROM Inventario.HistorialMaterial HM
-            INNER JOIN Inventario.TipoMovimiento TM ON HM.TipoMovimientoCodigo = TM.TipoMovimientoCodigo
-            WHERE CAST(HM.HistorialMaterialFecha AS DATE) = @FechaActual
-              AND TM.TipoMovimientoCodigo = 'S03'
-        ), 0) AS TotalDescarte,
-        
-        ISNULL((
-            SELECT COUNT(*)
-            FROM (
-                SELECT HistorialMaterialId AS Id FROM Inventario.HistorialMaterial WHERE CAST(HistorialMaterialFecha AS DATE) = @FechaActual
-                UNION ALL
-                SELECT HistorialCalzadoId FROM Inventario.HistorialCalzado WHERE CAST(HistorialCalzadoFecha AS DATE) = @FechaActual
-            ) AS Movimientos
-        ), 0) AS TotalMovimientos
+        @TotalMateriales AS TotalMateriales,
+        @TotalModelos AS TotalModelos,
+        @AlertasCriticas AS AlertasCriticas,
+        0 AS IngresosTotales,
+        NULL AS ProductoMasVendido,
+        0 AS TotalCalzado,
+        0 AS TotalAbastecimiento,
+        0 AS TotalDescarte,
+        0 AS TotalMovimientos,
+        NULL AS MaterialMasConsumido
 END
 GO
 
--- 4.5 Inventario - Listar Materiales
+-- ==========================================
+-- INVENTARIO - MATERIALES
+-- ==========================================
+
+-- 4.5 Listar Materiales
 CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_ListarMateriales
 AS
 BEGIN
@@ -522,7 +589,7 @@ BEGIN
 END
 GO
 
--- 4.6 Inventario - Listar Alertas Bajo Stock
+-- 4.6 Listar Alertas Bajo Stock
 CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_ListarAlertasBajoStock
 AS
 BEGIN
@@ -540,7 +607,7 @@ BEGIN
 END
 GO
 
--- 4.7 Inventario - Insertar Material
+-- 4.7 Insertar Material
 CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_InsertarMaterial
     @MaterialNombre NVARCHAR(100),
     @MaterialCategoria NVARCHAR(50),
@@ -593,7 +660,7 @@ BEGIN
 END
 GO
 
--- 4.8 Inventario - Listar Materiales para Dropdown
+-- 4.8 Listar Materiales para Dropdown
 CREATE OR ALTER PROCEDURE Inventario.USP_Material_ListarParaDropdown
 AS
 BEGIN
@@ -611,7 +678,7 @@ BEGIN
 END
 GO
 
--- 4.9 Inventario - Editar Material
+-- 4.9 Editar Material
 CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_EditarMaterial
     @MaterialCodigo NCHAR(8),
     @MaterialNombre NVARCHAR(100),
@@ -642,7 +709,7 @@ BEGIN
 END
 GO
 
--- 4.10 Inventario - Eliminar Material
+-- 4.10 Eliminar Material
 CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_EliminarMaterial
     @MaterialCodigo NCHAR(8),
     @UsuarioID NCHAR(8)
@@ -673,7 +740,11 @@ BEGIN
 END
 GO
 
--- 4.11 Inventario - Listar Calzado
+-- ==========================================
+-- INVENTARIO - CALZADO
+-- ==========================================
+
+-- 4.11 Listar Calzado
 CREATE OR ALTER PROCEDURE Inventario.USP_Inventario_ListarCalzado
 AS
 BEGIN
@@ -686,43 +757,7 @@ BEGIN
 END
 GO
 
--- 4.12 Inventario - Registrar Venta
-CREATE OR ALTER PROCEDURE Inventario.USP_Calzado_RegistrarVenta
-    @CalzadoCodigo NCHAR(8),
-    @CantidadAVender INT,
-    @UsuarioID NCHAR(8)
-AS
-BEGIN
-    SET NOCOUNT ON
-    BEGIN TRY
-        BEGIN TRANSACTION
-        DECLARE @StockActual INT
-        DECLARE @Estado NCHAR(1)
-        SELECT @StockActual = CalzadoStock, @Estado = CalzadoEstado FROM Inventario.Calzado WITH (UPDLOCK) WHERE CalzadoCodigo = @CalzadoCodigo
-
-        IF @StockActual IS NULL OR @Estado <> 'A'
-            RAISERROR('El calzado no existe o está inactivo.', 16, 1)
-
-        IF @StockActual < @CantidadAVender
-            RAISERROR('Stock insuficiente.', 16, 1)
-
-        UPDATE Inventario.Calzado SET CalzadoStock = CalzadoStock - @CantidadAVender WHERE CalzadoCodigo = @CalzadoCodigo
-
-        INSERT INTO Inventario.HistorialCalzado (CalzadoCodigo, TipoMovimientoCodigo, HistorialCalzadoCantidad, UsuarioID, HistorialCalzadoFecha)
-        VALUES (@CalzadoCodigo, 'S02', @CantidadAVender, @UsuarioID, GETDATE())
-
-        COMMIT TRANSACTION
-        SELECT 'EXITO' AS Resultado, N'Venta registrada correctamente.' AS Mensaje
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
-        RAISERROR(@ErrorMessage, 16, 1)
-    END CATCH
-END
-GO
-
--- 4.13 Inventario - Listar Calzado para Dropdown
+-- 4.12 Listar Calzado para Dropdown
 CREATE OR ALTER PROCEDURE Inventario.USP_Calzado_ListarParaDropdown
 AS
 BEGIN
@@ -734,114 +769,254 @@ BEGIN
 END
 GO
 
--- 4.14 Inventario - Registrar Producción Calzado
-CREATE OR ALTER PROCEDURE Inventario.USP_ProduccionCalzado_Registrar
+-- ==========================================
+-- PRODUCCIÓN
+-- ==========================================
+
+-- 4.13 Obtener Receta
+CREATE OR ALTER PROCEDURE Inventario.USP_Produccion_ObtenerReceta
+    @CalzadoCodigo NCHAR(8)
+AS
+BEGIN
+    SET NOCOUNT ON
+    
+    SELECT
+        CM.CalzadoMaterialID,
+        CM.CalzadoCodigo,
+        CM.MaterialCodigo,
+        M.MaterialNombre,
+        M.MaterialCategoria,
+        M.MaterialMedida,
+        CM.CantidadPorPar,
+        M.MaterialCantidad AS StockDisponible
+    FROM Inventario.CalzadoMaterial CM
+    INNER JOIN Inventario.Material M ON CM.MaterialCodigo = M.MaterialCodigo
+    WHERE CM.CalzadoCodigo = @CalzadoCodigo
+        AND M.MaterialEstado = 'A'
+    ORDER BY M.MaterialCategoria, M.MaterialNombre
+END
+GO
+
+-- 4.14 Obtener Receta con Validación de Stock
+CREATE OR ALTER PROCEDURE Inventario.USP_Produccion_ObtenerRecetaConStock
+    @CalzadoCodigo NCHAR(8),
+    @CantidadPares INT
+AS
+BEGIN
+    SET NOCOUNT ON
+    
+    SELECT
+        CM.CalzadoMaterialID,
+        CM.CalzadoCodigo,
+        CM.MaterialCodigo,
+        M.MaterialNombre,
+        M.MaterialCategoria,
+        M.MaterialMedida,
+        CM.CantidadPorPar,
+        M.MaterialCantidad AS StockActual,
+        (CM.CantidadPorPar * @CantidadPares) AS CantidadNecesaria,
+        CASE 
+            WHEN M.MaterialCantidad >= (CM.CantidadPorPar * @CantidadPares) THEN 1 
+            ELSE 0 
+        END AS StockSuficiente,
+        CASE 
+            WHEN M.MaterialCantidad < (CM.CantidadPorPar * @CantidadPares) 
+            THEN (CM.CantidadPorPar * @CantidadPares) - M.MaterialCantidad
+            ELSE 0
+        END AS Faltante,
+        M.MaterialCantidad - (CM.CantidadPorPar * @CantidadPares) AS StockRestante
+    FROM Inventario.CalzadoMaterial CM
+    INNER JOIN Inventario.Material M ON CM.MaterialCodigo = M.MaterialCodigo
+    WHERE CM.CalzadoCodigo = @CalzadoCodigo
+        AND M.MaterialEstado = 'A'
+    ORDER BY M.MaterialCategoria, M.MaterialNombre
+END
+GO
+
+-- 4.15 Registrar Producción Automática
+CREATE OR ALTER PROCEDURE Inventario.USP_Produccion_RegistrarAutomatica
     @CalzadoCodigo NCHAR(8),
     @CantidadPares INT,
-    @UsuarioID NCHAR(8),
-    @MaterialesJSON NVARCHAR(MAX)
+    @UsuarioID NCHAR(8)
 AS
 BEGIN
     SET NOCOUNT ON
+    
     BEGIN TRY
         BEGIN TRANSACTION
-        DECLARE @NuevaOrdenID INT
         
-        INSERT INTO Inventario.OrdenProduccion (CalzadoCodigo, CantidadPares, UsuarioID)
-        VALUES (@CalzadoCodigo, @CantidadPares, @UsuarioID)
-        SET @NuevaOrdenID = SCOPE_IDENTITY()
-
+        DECLARE @OrdenID INT
+        DECLARE @ErrorMateriales NVARCHAR(MAX) = ''
+        DECLARE @CalzadoNombre NVARCHAR(100)
+        DECLARE @MensajeError NVARCHAR(MAX)
+        
+        SELECT @CalzadoNombre = CalzadoModelo 
+        FROM Inventario.Calzado 
+        WHERE CalzadoCodigo = @CalzadoCodigo AND CalzadoEstado = 'A'
+        
+        IF @CalzadoNombre IS NULL
+        BEGIN
+            RAISERROR('El calzado no existe o está inactivo.', 16, 1)
+        END
+        
+        IF NOT EXISTS (SELECT 1 FROM Inventario.CalzadoMaterial WHERE CalzadoCodigo = @CalzadoCodigo)
+        BEGIN
+            RAISERROR('El calzado "%s" no tiene una receta de materiales configurada.', 16, 1, @CalzadoNombre)
+        END
+        
+        CREATE TABLE #ValidacionMateriales (
+            MaterialCodigo NCHAR(8),
+            MaterialNombre NVARCHAR(100),
+            Medida NVARCHAR(20),
+            CantidadPorPar DECIMAL(10,2),
+            StockActual DECIMAL(10,2),
+            CantidadNecesaria DECIMAL(10,2),
+            StockSuficiente BIT DEFAULT 0,
+            Faltante DECIMAL(10,2) DEFAULT 0
+        )
+        
+        INSERT INTO #ValidacionMateriales (MaterialCodigo, MaterialNombre, Medida, CantidadPorPar, StockActual)
+        SELECT
+            CM.MaterialCodigo,
+            M.MaterialNombre,
+            M.MaterialMedida,
+            CM.CantidadPorPar,
+            M.MaterialCantidad
+        FROM Inventario.CalzadoMaterial CM
+        INNER JOIN Inventario.Material M ON CM.MaterialCodigo = M.MaterialCodigo
+        WHERE CM.CalzadoCodigo = @CalzadoCodigo
+            AND M.MaterialEstado = 'A'
+        
+        UPDATE #ValidacionMateriales
+        SET 
+            CantidadNecesaria = CantidadPorPar * @CantidadPares,
+            StockSuficiente = CASE 
+                WHEN StockActual >= (CantidadPorPar * @CantidadPares) THEN 1 
+                ELSE 0 
+            END,
+            Faltante = CASE 
+                WHEN StockActual < (CantidadPorPar * @CantidadPares) 
+                THEN (CantidadPorPar * @CantidadPares) - StockActual
+                ELSE 0
+            END
+        
+        SELECT @ErrorMateriales = STUFF((
+            SELECT CHAR(10) + 
+                MaterialNombre + ' (Disponible: ' + CAST(StockActual AS NVARCHAR(10)) + 
+                ' ' + Medida + ', Necesario: ' + CAST(CantidadNecesaria AS NVARCHAR(10)) + 
+                ' ' + Medida + ', Faltante: ' + CAST(Faltante AS NVARCHAR(10)) + ' ' + Medida + ')'
+            FROM #ValidacionMateriales
+            WHERE StockSuficiente = 0
+            FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 1, '')
+        
+        IF @ErrorMateriales IS NOT NULL AND @ErrorMateriales <> ''
+        BEGIN
+            SET @MensajeError = 'Stock insuficiente para los siguientes materiales:' + CHAR(10) + @ErrorMateriales
+            RAISERROR(@MensajeError, 16, 1)
+        END
+        
+        INSERT INTO Inventario.OrdenProduccion (CalzadoCodigo, CantidadPares, UsuarioID, OrdenFecha)
+        VALUES (@CalzadoCodigo, @CantidadPares, @UsuarioID, GETDATE())
+        SET @OrdenID = SCOPE_IDENTITY()
+        
         INSERT INTO Inventario.OrdenProduccionDetalle (OrdenID, MaterialCodigo, CantidadConsumida)
-        SELECT @NuevaOrdenID, j.codigo, (j.cantidadPorPar * @CantidadPares)
-        FROM OPENJSON(@MaterialesJSON) WITH (codigo NCHAR(8) '$.codigo', cantidadPorPar DECIMAL(10,2) '$.cantidadPorPar') AS j
-
-        UPDATE m SET m.MaterialCantidad = m.MaterialCantidad - (j.cantidadPorPar * @CantidadPares)
-        FROM Inventario.Material m INNER JOIN OPENJSON(@MaterialesJSON) WITH (codigo NCHAR(8) '$.codigo', cantidadPorPar DECIMAL(10,2) '$.cantidadPorPar') AS j ON m.MaterialCodigo = j.codigo
-
-        UPDATE Inventario.Calzado SET CalzadoStock = CalzadoStock + @CantidadPares WHERE CalzadoCodigo = @CalzadoCodigo
-
+        SELECT @OrdenID, MaterialCodigo, CantidadNecesaria
+        FROM #ValidacionMateriales
+        
+        UPDATE M
+        SET M.MaterialCantidad = M.MaterialCantidad - VM.CantidadNecesaria
+        FROM Inventario.Material M
+        INNER JOIN #ValidacionMateriales VM ON M.MaterialCodigo = VM.MaterialCodigo
+        
+        INSERT INTO Inventario.HistorialMaterial (MaterialCodigo, TipoMovimientoCodigo, HistorialMaterialCantidad, UsuarioID, HistorialMaterialFecha, HistorialMaterialNota)
+        SELECT
+            MaterialCodigo,
+            'S01',
+            CantidadNecesaria,
+            @UsuarioID,
+            GETDATE(),
+            'Consumo por Producción - Orden #' + CAST(@OrdenID AS NVARCHAR(10)) + 
+            ' - ' + CAST(@CantidadPares AS NVARCHAR(10)) + ' pares de ' + @CalzadoNombre
+        FROM #ValidacionMateriales
+        
+        UPDATE Inventario.Calzado
+        SET CalzadoStock = CalzadoStock + @CantidadPares
+        WHERE CalzadoCodigo = @CalzadoCodigo
+        
         INSERT INTO Inventario.HistorialCalzado (CalzadoCodigo, TipoMovimientoCodigo, HistorialCalzadoCantidad, UsuarioID, HistorialCalzadoFecha)
         VALUES (@CalzadoCodigo, 'E02', @CantidadPares, @UsuarioID, GETDATE())
-
-        INSERT INTO Inventario.HistorialMaterial (MaterialCodigo, TipoMovimientoCodigo, HistorialMaterialCantidad, UsuarioID, HistorialMaterialFecha, HistorialMaterialNota)
-        SELECT j.codigo, 'S01', (j.cantidadPorPar * @CantidadPares), @UsuarioID, GETDATE(), N'Consumo por Producción - Orden #' + CAST(@NuevaOrdenID AS NVARCHAR(10))
-        FROM OPENJSON(@MaterialesJSON) WITH (codigo NCHAR(8) '$.codigo', cantidadPorPar DECIMAL(10,2) '$.cantidadPorPar') AS j
-
+        
+        DROP TABLE #ValidacionMateriales
+        
         COMMIT TRANSACTION
-        SELECT 'EXITO' AS Resultado, N'Producción guardada con éxito. Orden #' + CAST(@NuevaOrdenID AS NVARCHAR(10)) AS Mensaje
+        
+        SELECT @OrdenID AS OrdenID, @CantidadPares AS CantidadPares, 'EXITO' AS Resultado,
+               'Producción registrada correctamente. Orden #' + CAST(@OrdenID AS NVARCHAR(10)) AS Mensaje
+        
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
+        
+        IF OBJECT_ID('tempdb..#ValidacionMateriales') IS NOT NULL
+            DROP TABLE #ValidacionMateriales
+        
+        DECLARE @ErrorNumber INT = ERROR_NUMBER()
         DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
-        RAISERROR(@ErrorMessage, 16, 1)
-    END CATCH
-END
-GO
-
--- 4.15 Seguridad - Validar Acceso
-CREATE OR ALTER PROCEDURE Seguridad.USP_Usuario_ValidarAcceso
-    @UsuarioInput NVARCHAR(100),
-    @UsuarioPassword NVARCHAR(50)
-AS
-BEGIN
-    SET NOCOUNT ON
-    IF EXISTS (
-        SELECT 1
-        FROM Seguridad.Usuario
-        WHERE (UsuarioLogin = @UsuarioInput OR UsuarioCorreo = @UsuarioInput)
-          AND UsuarioPassword = @UsuarioPassword
-          AND UsuarioEstado = 'A'
-    )
-    BEGIN
-        SELECT
-            'EXITO' AS Resultado,
-            RTRIM(UsuarioID) AS UsuarioID,
-            UsuarioNombre,
-            RTRIM(UsuarioLogin) AS UsuarioLogin,
-            RTRIM(UsuarioCorreo) AS UsuarioCorreo,
-            RTRIM(TipoUsuarioCodigo) AS TipoUsuarioCodigo
-        FROM Seguridad.Usuario
-        WHERE (UsuarioLogin = @UsuarioInput OR UsuarioCorreo = @UsuarioInput)
-          AND UsuarioPassword = @UsuarioPassword
-    END
-    ELSE
-    BEGIN
-        SELECT 'ERROR' AS Resultado, 'Usuario/Correo o contraseña incorrectos' AS Mensaje
-    END
-END
-GO
-
--- 4.16 Seguridad - Restablecer Contraseña
-CREATE OR ALTER PROCEDURE Seguridad.USP_Usuario_RestablecerPassword
-    @UsuarioLogin NVARCHAR(20),
-    @NuevaPassword NVARCHAR(50)
-AS
-BEGIN
-    SET NOCOUNT ON
-    BEGIN TRY
-        BEGIN TRANSACTION
-
-        IF NOT EXISTS (SELECT 1 FROM Seguridad.Usuario WHERE UsuarioLogin = @UsuarioLogin AND UsuarioEstado = 'A')
+        
+        IF @ErrorNumber = 50000
         BEGIN
-            RAISERROR('El nombre de usuario especificado no existe o está inactivo.', 16, 1)
+            RAISERROR(@ErrorMessage, 16, 1)
         END
-
-        UPDATE Seguridad.Usuario
-        SET UsuarioPassword = @NuevaPassword
-        WHERE UsuarioLogin = @UsuarioLogin
-
-        COMMIT TRANSACTION
-        SELECT 'EXITO' AS Resultado, 'La contraseña ha sido restablecida correctamente.' AS Mensaje
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
-        RAISERROR(@ErrorMessage, 16, 1)
+        ELSE
+        BEGIN
+            RAISERROR('Error interno: %s', 16, 1, @ErrorMessage)
+        END
     END CATCH
 END
 GO
 
--- 4.17 Carrito - Obtener Detalle
+-- 4.16 Obtener Detalle de Orden
+CREATE OR ALTER PROCEDURE Inventario.USP_Produccion_ObtenerDetalle
+    @OrdenID INT
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    SELECT
+        O.OrdenID,
+        O.CalzadoCodigo,
+        C.CalzadoModelo,
+        C.CalzadoColor,
+        C.CalzadoTalla,
+        O.CantidadPares,
+        O.OrdenFecha,
+        U.UsuarioNombre AS Operario,
+        O.OrdenEstado
+    FROM Inventario.OrdenProduccion O
+    INNER JOIN Inventario.Calzado C ON O.CalzadoCodigo = C.CalzadoCodigo
+    INNER JOIN Seguridad.Usuario U ON O.UsuarioID = U.UsuarioID
+    WHERE O.OrdenID = @OrdenID
+
+    SELECT
+        OD.DetalleID,
+        OD.MaterialCodigo,
+        M.MaterialNombre,
+        M.MaterialCategoria,
+        M.MaterialMedida,
+        OD.CantidadConsumida
+    FROM Inventario.OrdenProduccionDetalle OD
+    INNER JOIN Inventario.Material M ON OD.MaterialCodigo = M.MaterialCodigo
+    WHERE OD.OrdenID = @OrdenID
+    ORDER BY M.MaterialCategoria, M.MaterialNombre
+END
+GO
+
+-- ==========================================
+-- CARRITO
+-- ==========================================
+
+-- 4.17 Obtener Detalle Carrito
 CREATE OR ALTER PROCEDURE Inventario.USP_Carrito_ObtenerDetalle
     @UsuarioID NCHAR(8) = NULL,
     @CarritoID INT = NULL
@@ -864,23 +1039,14 @@ BEGIN
 
     IF @CarritoIDFinal IS NULL
     BEGIN
-        SELECT
-            NULL AS CarritoID,
-            NULL AS UsuarioID,
-            NULL AS Total,
-            CAST(0 AS INT) AS CantidadTotal,
-            CAST(0 AS DECIMAL(10,2)) AS TotalGeneral,
-            CAST(0 AS INT) AS NumeroItems
+        SELECT NULL AS CarritoID, NULL AS UsuarioID, NULL AS Total, CAST(0 AS INT) AS CantidadTotal,
+               CAST(0 AS DECIMAL(10,2)) AS TotalGeneral, CAST(0 AS INT) AS NumeroItems
         RETURN
     END
 
     SELECT
-        C.CarritoID,
-        C.UsuarioID,
-        U.UsuarioNombre AS UsuarioNombre,
-        C.Total,
-        C.FechaCreacion,
-        C.FechaActualizacion,
+        C.CarritoID, C.UsuarioID, U.UsuarioNombre AS UsuarioNombre, C.Total,
+        C.FechaCreacion, C.FechaActualizacion,
         (SELECT COUNT(*) FROM Inventario.CarritoDetalle WHERE CarritoID = C.CarritoID) AS NumeroItems,
         (SELECT SUM(Cantidad) FROM Inventario.CarritoDetalle WHERE CarritoID = C.CarritoID) AS CantidadTotal
     FROM Inventario.Carrito C
@@ -888,16 +1054,9 @@ BEGIN
     WHERE C.CarritoID = @CarritoIDFinal
 
     SELECT
-        CD.DetalleID,
-        CD.CalzadoCodigo,
-        CA.CalzadoModelo AS Modelo,
-        CA.CalzadoColor AS Color,
-        CA.CalzadoTalla AS Talla,
-        CD.Cantidad,
-        CD.PrecioUnitario,
-        CD.Subtotal,
-        CA.CalzadoStock AS StockDisponible,
-        CD.FechaAgregado
+        CD.DetalleID, CD.CalzadoCodigo, CA.CalzadoModelo AS Modelo, CA.CalzadoColor AS Color,
+        CA.CalzadoTalla AS Talla, CD.Cantidad, CD.PrecioUnitario, CD.Subtotal,
+        CA.CalzadoStock AS StockDisponible, CD.FechaAgregado
     FROM Inventario.CarritoDetalle CD
     INNER JOIN Inventario.Calzado CA ON CD.CalzadoCodigo = CA.CalzadoCodigo
     WHERE CD.CarritoID = @CarritoIDFinal
@@ -905,7 +1064,7 @@ BEGIN
 END
 GO
 
--- 4.18 Carrito - Agregar Producto
+-- 4.18 Agregar Producto al Carrito
 CREATE OR ALTER PROCEDURE Inventario.USP_Carrito_AgregarProducto
     @UsuarioID NCHAR(8),
     @CalzadoCodigo NCHAR(8),
@@ -939,20 +1098,14 @@ BEGIN
 
         IF @CarritoID IS NULL
         BEGIN
-            INSERT INTO Inventario.Carrito (UsuarioID, Total)
-            VALUES (@UsuarioID, 0.00)
+            INSERT INTO Inventario.Carrito (UsuarioID, Total) VALUES (@UsuarioID, 0.00)
             SET @CarritoID = SCOPE_IDENTITY()
         END
 
-        IF EXISTS (
-            SELECT 1 FROM Inventario.CarritoDetalle
-            WHERE CarritoID = @CarritoID AND CalzadoCodigo = @CalzadoCodigo
-        )
+        IF EXISTS (SELECT 1 FROM Inventario.CarritoDetalle WHERE CarritoID = @CarritoID AND CalzadoCodigo = @CalzadoCodigo)
         BEGIN
             UPDATE Inventario.CarritoDetalle
-            SET Cantidad = Cantidad + @Cantidad,
-                Subtotal = (Cantidad + @Cantidad) * @PrecioUnitario,
-                FechaAgregado = GETDATE()
+            SET Cantidad = Cantidad + @Cantidad, Subtotal = (Cantidad + @Cantidad) * @PrecioUnitario, FechaAgregado = GETDATE()
             WHERE CarritoID = @CarritoID AND CalzadoCodigo = @CalzadoCodigo
         END
         ELSE
@@ -977,7 +1130,7 @@ BEGIN
 END
 GO
 
--- 4.19 Carrito - Actualizar Cantidad
+-- 4.19 Actualizar Cantidad Carrito
 CREATE OR ALTER PROCEDURE Inventario.USP_Carrito_ActualizarCantidad
     @UsuarioID NCHAR(8),
     @DetalleID BIGINT,
@@ -1038,7 +1191,7 @@ BEGIN
 END
 GO
 
--- 4.20 Carrito - Eliminar Producto
+-- 4.20 Eliminar Producto del Carrito
 CREATE OR ALTER PROCEDURE Inventario.USP_Carrito_EliminarProducto
     @UsuarioID NCHAR(8),
     @DetalleID BIGINT
@@ -1082,7 +1235,7 @@ BEGIN
 END
 GO
 
--- 4.21 Carrito - Limpiar Carrito
+-- 4.21 Limpiar Carrito
 CREATE OR ALTER PROCEDURE Inventario.USP_Carrito_Limpiar
     @UsuarioID NCHAR(8)
 AS
@@ -1114,7 +1267,7 @@ BEGIN
 END
 GO
 
--- 4.22 Carrito - Confirmar Venta
+-- 4.22 Confirmar Venta desde Carrito
 CREATE OR ALTER PROCEDURE Inventario.USP_Carrito_ConfirmarVenta
     @UsuarioID NCHAR(8)
 AS
@@ -1134,14 +1287,10 @@ BEGIN
         ORDER BY CarritoID DESC
         
         IF @CarritoID IS NULL
-        BEGIN
             RAISERROR('No tienes un carrito activo con productos.', 16, 1)
-        END
         
         IF @Total = 0
-        BEGIN
             RAISERROR('El carrito está vacío.', 16, 1)
-        END
         
         SELECT @ErrorStock = @ErrorStock + 
             CA.CalzadoModelo + ' (Stock: ' + CAST(CA.CalzadoStock AS NVARCHAR(10)) + 
@@ -1156,54 +1305,17 @@ BEGIN
             RAISERROR(@MsgError, 16, 1)
         END
         
-        INSERT INTO Inventario.Venta (
-            UsuarioID,
-            CarritoID,
-            Total,
-            FechaVenta,
-            Estado
-        )
-        VALUES (
-            @UsuarioID,
-            @CarritoID,
-            @Total,
-            GETDATE(),
-            'A'
-        )
-        
+        INSERT INTO Inventario.Venta (UsuarioID, CarritoID, Total, FechaVenta, Estado)
+        VALUES (@UsuarioID, @CarritoID, @Total, GETDATE(), 'A')
         SET @VentaID = SCOPE_IDENTITY()
         
-        INSERT INTO Inventario.VentaDetalle (
-            VentaID,
-            CalzadoCodigo,
-            Cantidad,
-            PrecioUnitario,
-            Subtotal
-        )
-        SELECT 
-            @VentaID,
-            CalzadoCodigo,
-            Cantidad,
-            PrecioUnitario,
-            Subtotal
-        FROM Inventario.CarritoDetalle
-        WHERE CarritoID = @CarritoID
+        INSERT INTO Inventario.VentaDetalle (VentaID, CalzadoCodigo, Cantidad, PrecioUnitario, Subtotal)
+        SELECT @VentaID, CalzadoCodigo, Cantidad, PrecioUnitario, Subtotal
+        FROM Inventario.CarritoDetalle WHERE CarritoID = @CarritoID
         
-        INSERT INTO Inventario.HistorialCalzado (
-            CalzadoCodigo,
-            TipoMovimientoCodigo,
-            HistorialCalzadoCantidad,
-            UsuarioID,
-            HistorialCalzadoFecha
-        )
-        SELECT 
-            CD.CalzadoCodigo,
-            'S02', -- Salida por Venta
-            CD.Cantidad,
-            @UsuarioID,
-            GETDATE()
-        FROM Inventario.CarritoDetalle CD
-        WHERE CD.CarritoID = @CarritoID
+        INSERT INTO Inventario.HistorialCalzado (CalzadoCodigo, TipoMovimientoCodigo, HistorialCalzadoCantidad, UsuarioID, HistorialCalzadoFecha)
+        SELECT CD.CalzadoCodigo, 'S02', CD.Cantidad, @UsuarioID, GETDATE()
+        FROM Inventario.CarritoDetalle CD WHERE CD.CarritoID = @CarritoID
         
         UPDATE CA
         SET CA.CalzadoStock = CA.CalzadoStock - CD.Cantidad
@@ -1211,20 +1323,13 @@ BEGIN
         INNER JOIN Inventario.CarritoDetalle CD ON CA.CalzadoCodigo = CD.CalzadoCodigo
         WHERE CD.CarritoID = @CarritoID
         
-        UPDATE Inventario.Carrito
-        SET Estado = 'C',
-            FechaActualizacion = GETDATE()
+        UPDATE Inventario.Carrito SET Estado = 'C', FechaActualizacion = GETDATE()
         WHERE CarritoID = @CarritoID
         
         COMMIT TRANSACTION
         
-        SELECT 
-            @VentaID AS VentaID,
-            @CarritoID AS CarritoID,
-            @Total AS Total,
-            GETDATE() AS FechaVenta,
-            'EXITO' AS Resultado,
-            'Venta realizada con éxito. Venta #' + CAST(@VentaID AS NVARCHAR(10)) AS Mensaje
+        SELECT @VentaID AS VentaID, @CarritoID AS CarritoID, @Total AS Total, GETDATE() AS FechaVenta,
+               'EXITO' AS Resultado, 'Venta realizada con éxito. Venta #' + CAST(@VentaID AS NVARCHAR(10)) AS Mensaje
         
     END TRY
     BEGIN CATCH
@@ -1235,7 +1340,11 @@ BEGIN
 END
 GO
 
--- 4.23 Venta - Obtener Historial
+-- ==========================================
+-- VENTAS
+-- ==========================================
+
+-- 4.23 Obtener Historial de Ventas
 CREATE OR ALTER PROCEDURE Inventario.USP_Venta_ObtenerHistorial
     @UsuarioID NCHAR(8) = NULL,
     @FechaInicio DATE = NULL,
@@ -1248,12 +1357,7 @@ BEGIN
     IF @FechaFin IS NULL SET @FechaFin = GETDATE()
 
     SELECT
-        V.VentaID,
-        V.UsuarioID,
-        U.UsuarioNombre,
-        V.FechaVenta,
-        V.Total,
-        V.Estado,
+        V.VentaID, V.UsuarioID, U.UsuarioNombre, V.FechaVenta, V.Total, V.Estado,
         (SELECT COUNT(*) FROM Inventario.VentaDetalle VD WHERE VD.VentaID = V.VentaID) AS NumeroItems,
         (SELECT SUM(Cantidad) FROM Inventario.VentaDetalle VD WHERE VD.VentaID = V.VentaID) AS CantidadTotal
     FROM Inventario.Venta V
@@ -1265,33 +1369,21 @@ BEGIN
 END
 GO
 
--- 4.24 Venta - Obtener Detalle
+-- 4.24 Obtener Detalle de Venta
 CREATE OR ALTER PROCEDURE Inventario.USP_Venta_ObtenerDetalle
     @VentaID INT
 AS
 BEGIN
     SET NOCOUNT ON
 
-    SELECT
-        V.VentaID,
-        V.UsuarioID,
-        U.UsuarioNombre,
-        V.FechaVenta,
-        V.Total,
-        V.Estado
+    SELECT V.VentaID, V.UsuarioID, U.UsuarioNombre, V.FechaVenta, V.Total, V.Estado
     FROM Inventario.Venta V
     INNER JOIN Seguridad.Usuario U ON V.UsuarioID = U.UsuarioID
     WHERE V.VentaID = @VentaID
 
-    SELECT
-        VD.VentaDetalleID,
-        VD.CalzadoCodigo,
-        CA.CalzadoModelo AS Modelo,
-        CA.CalzadoColor AS Color,
-        CA.CalzadoTalla AS Talla,
-        VD.Cantidad,
-        VD.PrecioUnitario,
-        VD.Subtotal
+    SELECT VD.VentaDetalleID, VD.CalzadoCodigo, CA.CalzadoModelo AS Modelo,
+           CA.CalzadoColor AS Color, CA.CalzadoTalla AS Talla,
+           VD.Cantidad, VD.PrecioUnitario, VD.Subtotal
     FROM Inventario.VentaDetalle VD
     INNER JOIN Inventario.Calzado CA ON VD.CalzadoCodigo = CA.CalzadoCodigo
     WHERE VD.VentaID = @VentaID
@@ -1299,13 +1391,11 @@ BEGIN
 END
 GO
 
--- =========================================================================
--- 5. REPORTES - STORED PROCEDURES 
--- =========================================================================
+-- ==========================================
+-- REPORTES
+-- ==========================================
 
--- =========================================================================
--- 5.1 REPORTE DE VENTAS - RESUMEN CON FILTROS
--- =========================================================================
+-- 5.1 Reporte de Ventas
 CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Ventas  
     @FechaInicio DATE = NULL,  
     @FechaFin DATE = NULL,  
@@ -1313,14 +1403,11 @@ CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Ventas
     @UsuarioID NCHAR(8) = NULL  
 AS  
 BEGIN  
-    SET NOCOUNT ON  
-      
-    IF @FechaInicio IS NULL  
-        SET @FechaInicio = DATEADD(DAY, -30, GETDATE())  
-    IF @FechaFin IS NULL  
-        SET @FechaFin = GETDATE()  
-      
-    -- Ajustar según tipo de filtro  
+    SET NOCOUNT ON      
+    
+    -- ==========================================
+    -- 1. CONFIGURAR FECHAS SEGÚN FILTRO
+    -- ==========================================
     IF @TipoFiltro = 'DIA'  
     BEGIN  
         SET @FechaInicio = CAST(GETDATE() AS DATE)  
@@ -1341,8 +1428,15 @@ BEGIN
         SET @FechaInicio = DATEADD(YEAR, -1, CAST(GETDATE() AS DATE))  
         SET @FechaFin = CAST(GETDATE() AS DATE)  
     END  
+    
+    IF @FechaInicio IS NULL  
+        SET @FechaInicio = DATEADD(MONTH, -1, GETDATE())  
+    IF @FechaFin IS NULL  
+        SET @FechaFin = GETDATE()  
 
-    -- ====== 1. RESUMEN GENERAL ======  
+    -- ==========================================
+    -- 2. RESUMEN GENERAL
+    -- ==========================================
     SELECT  
         @FechaInicio AS FechaInicio,  
         @FechaFin AS FechaFin,  
@@ -1359,7 +1453,9 @@ BEGIN
         AND V.Estado = 'A'  
         AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)  
 
-    -- ====== 2. TOP 5 PRODUCTOS MÁS VENDIDOS ======  
+    -- ==========================================
+    -- 3. TOP 5 PRODUCTOS MÁS VENDIDOS
+    -- ==========================================
     SELECT TOP 5  
         CA.CalzadoModelo AS Modelo,  
         CA.CalzadoTipo AS Tipo,  
@@ -1370,27 +1466,50 @@ BEGIN
     FROM Inventario.Venta V  
     INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID  
     INNER JOIN Inventario.Calzado CA ON VD.CalzadoCodigo = CA.CalzadoCodigo  
-    WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin 
+    WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin  
         AND V.Estado = 'A'  
         AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)  
     GROUP BY CA.CalzadoModelo, CA.CalzadoTipo, CA.CalzadoColor, CA.CalzadoTalla  
     ORDER BY ISNULL(SUM(VD.Cantidad), 0) DESC  
 
-    -- ====== 3. VENTAS POR DÍA ======  
-    SELECT  
-        CAST(V.FechaVenta AS DATE) AS Fecha,  
-        COUNT(*) AS NumeroVentas,  
-        SUM(V.Total) AS IngresosDelDia,  
-        ISNULL(SUM(VD.Cantidad), 0) AS ParesVendidos  
-    FROM Inventario.Venta V  
-    LEFT JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID  
-    WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin  
-        AND V.Estado = 'A'  
-        AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)  
-    GROUP BY CAST(V.FechaVenta AS DATE)  
-    ORDER BY Fecha DESC  
+    -- ==========================================
+    -- 4. VENTAS POR DÍA/MES
+    -- ==========================================
+    IF @TipoFiltro = 'ANIO'  
+    BEGIN  
+        SELECT  
+            DATEFROMPARTS(YEAR(V.FechaVenta), MONTH(V.FechaVenta), 1) AS Fecha,  
+            COUNT(*) AS NumeroVentas,  
+            SUM(V.Total) AS IngresosDelDia,  
+            ISNULL(SUM(VD.Cantidad), 0) AS ParesVendidos  
+        FROM Inventario.Venta V  
+        LEFT JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID  
+        WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin  
+            AND V.Estado = 'A'  
+            AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)  
+        GROUP BY YEAR(V.FechaVenta), MONTH(V.FechaVenta)  
+        ORDER BY YEAR(V.FechaVenta) DESC, MONTH(V.FechaVenta) DESC  
+    END  
+    ELSE  
+    BEGIN  
+        -- ✅ Para DIA, SEMANA, MES: agrupar por DÍA
+        SELECT  
+            CAST(V.FechaVenta AS DATE) AS Fecha,  
+            COUNT(*) AS NumeroVentas,  
+            SUM(V.Total) AS IngresosDelDia,  
+            ISNULL(SUM(VD.Cantidad), 0) AS ParesVendidos  
+        FROM Inventario.Venta V  
+        LEFT JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID  
+        WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin  
+            AND V.Estado = 'A'  
+            AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)  
+        GROUP BY CAST(V.FechaVenta AS DATE)  
+        ORDER BY Fecha DESC  
+    END  
 
-    -- ====== 4. VENTAS POR TIPO DE CALZADO ======  
+    -- ==========================================
+    -- 5. VENTAS POR TIPO DE CALZADO
+    -- ==========================================
     SELECT  
         CA.CalzadoTipo AS TipoCalzado,  
         COUNT(DISTINCT V.VentaID) AS NumeroVentas,  
@@ -1399,17 +1518,15 @@ BEGIN
     FROM Inventario.Venta V  
     INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID  
     INNER JOIN Inventario.Calzado CA ON VD.CalzadoCodigo = CA.CalzadoCodigo  
-    WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin 
+    WHERE CAST(V.FechaVenta AS DATE) BETWEEN @FechaInicio AND @FechaFin  
         AND V.Estado = 'A'  
         AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)  
     GROUP BY CA.CalzadoTipo  
     ORDER BY ISNULL(SUM(VD.Cantidad), 0) DESC  
 END  
-GO   
+GO
 
--- =========================================================================
--- 5.2 REPORTE DE PRODUCCIÓN - RESUMEN CON FILTROS
--- =========================================================================
+-- 5.2 Reporte de Producción
 CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Produccion
     @FechaInicio DATE = NULL,
     @FechaFin DATE = NULL,
@@ -1418,13 +1535,7 @@ CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Produccion
 AS
 BEGIN
     SET NOCOUNT ON
-    
-    IF @FechaInicio IS NULL
-        SET @FechaInicio = DATEADD(DAY, -30, GETDATE())
-    IF @FechaFin IS NULL
-        SET @FechaFin = GETDATE()
-    
-    IF @TipoFiltro = 'DIA'
+        IF @TipoFiltro = 'DIA'
     BEGIN
         SET @FechaInicio = CAST(GETDATE() AS DATE)
         SET @FechaFin = CAST(GETDATE() AS DATE)
@@ -1444,22 +1555,29 @@ BEGIN
         SET @FechaInicio = DATEADD(YEAR, -1, CAST(GETDATE() AS DATE))
         SET @FechaFin = CAST(GETDATE() AS DATE)
     END
+    
+    IF @FechaInicio IS NULL
+        SET @FechaInicio = DATEADD(MONTH, -1, GETDATE())
+    IF @FechaFin IS NULL
+        SET @FechaFin = GETDATE()
 
-    -- ====== 1. RESUMEN GENERAL ======
     SELECT
         @FechaInicio AS FechaInicio,
         @FechaFin AS FechaFin,
         @TipoFiltro AS TipoFiltro,
         COUNT(DISTINCT O.OrdenID) AS TotalOrdenes,
         ISNULL(SUM(O.CantidadPares), 0) AS TotalParesProducidos,
-        ISNULL(AVG(O.CantidadPares), 0) AS PromedioParesPorOrden,
+        ISNULL(AVG(CAST(O.CantidadPares AS DECIMAL(10,2))), 0) AS PromedioParesPorOrden,
         COUNT(DISTINCT O.UsuarioID) AS OperariosActivos,
         COUNT(DISTINCT O.CalzadoCodigo) AS ModelosProducidos
     FROM Inventario.OrdenProduccion O
-    WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin
+    WHERE CAST(O.OrdenFecha AS DATE) BETWEEN @FechaInicio AND @FechaFin
+        AND O.OrdenEstado = 'A'
         AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)
 
-    -- ====== 2. TOP 5 MODELOS PRODUCIDOS ======
+    -- ==========================================
+    -- 3. TOP 5 MODELOS PRODUCIDOS
+    -- ==========================================
     SELECT TOP 5
         CA.CalzadoModelo AS Modelo,
         CA.CalzadoTipo AS Tipo,
@@ -1469,23 +1587,39 @@ BEGIN
         COUNT(DISTINCT O.OrdenID) AS NumeroOrdenes
     FROM Inventario.OrdenProduccion O
     INNER JOIN Inventario.Calzado CA ON O.CalzadoCodigo = CA.CalzadoCodigo
-    WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin
+    WHERE CAST(O.OrdenFecha AS DATE) BETWEEN @FechaInicio AND @FechaFin
+        AND O.OrdenEstado = 'A'
         AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)
     GROUP BY CA.CalzadoModelo, CA.CalzadoTipo, CA.CalzadoColor, CA.CalzadoTalla
     ORDER BY SUM(O.CantidadPares) DESC
-
-    -- ====== 3. PRODUCCIÓN POR DÍA ======
-    SELECT
-        CAST(O.OrdenFecha AS DATE) AS Fecha,
-        COUNT(*) AS NumeroOrdenes,
-        SUM(O.CantidadPares) AS ParesProducidos
-    FROM Inventario.OrdenProduccion O
-    WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin
-        AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)
-    GROUP BY CAST(O.OrdenFecha AS DATE)
-    ORDER BY Fecha DESC
-
-    -- ====== 4. CONSUMO DE MATERIALES ======
+  
+    IF @TipoFiltro = 'ANIO'  
+    BEGIN  
+        SELECT  
+            DATEFROMPARTS(YEAR(O.OrdenFecha), MONTH(O.OrdenFecha), 1) AS Fecha,  
+            COUNT(*) AS NumeroOrdenes,  
+            SUM(O.CantidadPares) AS ParesProducidos  
+        FROM Inventario.OrdenProduccion O  
+        WHERE CAST(O.OrdenFecha AS DATE) BETWEEN @FechaInicio AND @FechaFin  
+            AND O.OrdenEstado = 'A'  
+            AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)  
+        GROUP BY YEAR(O.OrdenFecha), MONTH(O.OrdenFecha)  
+        ORDER BY YEAR(O.OrdenFecha) DESC, MONTH(O.OrdenFecha) DESC  
+    END  
+    ELSE  
+    BEGIN  
+        SELECT  
+            CAST(O.OrdenFecha AS DATE) AS Fecha,  
+            COUNT(*) AS NumeroOrdenes,  
+            SUM(O.CantidadPares) AS ParesProducidos  
+        FROM Inventario.OrdenProduccion O  
+        WHERE CAST(O.OrdenFecha AS DATE) BETWEEN @FechaInicio AND @FechaFin  
+            AND O.OrdenEstado = 'A'  
+            AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)  
+        GROUP BY CAST(O.OrdenFecha AS DATE)  
+        ORDER BY Fecha DESC  
+    END  
+  
     SELECT TOP 5
         M.MaterialNombre AS Material,
         M.MaterialCategoria AS Categoria,
@@ -1494,16 +1628,15 @@ BEGIN
     FROM Inventario.OrdenProduccionDetalle OD
     INNER JOIN Inventario.Material M ON OD.MaterialCodigo = M.MaterialCodigo
     INNER JOIN Inventario.OrdenProduccion O ON OD.OrdenID = O.OrdenID
-    WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin
+    WHERE CAST(O.OrdenFecha AS DATE) BETWEEN @FechaInicio AND @FechaFin
+        AND O.OrdenEstado = 'A'
         AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)
     GROUP BY M.MaterialNombre, M.MaterialCategoria, M.MaterialMedida
     ORDER BY SUM(OD.CantidadConsumida) DESC
 END
 GO
 
--- =========================================================================
--- 5.3 REPORTE COMPARATIVO - VENTAS VS PRODUCCIÓN (SIMPLIFICADO)
--- =========================================================================
+-- 5.3 Reporte Comparativo
 CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Comparativo
     @FechaInicio DATE = NULL,
     @FechaFin DATE = NULL
@@ -1516,22 +1649,15 @@ BEGIN
     IF @FechaFin IS NULL
         SET @FechaFin = GETDATE()
 
-    -- Ventas agrupadas por mes
     ;WITH Ventas AS (
-        SELECT
-            FORMAT(V.FechaVenta, 'yyyy-MM') AS Periodo,
-            SUM(V.Total) AS TotalVentas,
-            SUM(VD.Cantidad) AS ParesVendidos
+        SELECT FORMAT(V.FechaVenta, 'yyyy-MM') AS Periodo, SUM(V.Total) AS TotalVentas, SUM(VD.Cantidad) AS ParesVendidos
         FROM Inventario.Venta V
         LEFT JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID
-        WHERE V.FechaVenta BETWEEN @FechaInicio AND @FechaFin
-            AND V.Estado = 'A'
+        WHERE V.FechaVenta BETWEEN @FechaInicio AND @FechaFin AND V.Estado = 'A'
         GROUP BY FORMAT(V.FechaVenta, 'yyyy-MM')
     ),
     Produccion AS (
-        SELECT
-            FORMAT(O.OrdenFecha, 'yyyy-MM') AS Periodo,
-            SUM(O.CantidadPares) AS ParesProducidos
+        SELECT FORMAT(O.OrdenFecha, 'yyyy-MM') AS Periodo, SUM(O.CantidadPares) AS ParesProducidos
         FROM Inventario.OrdenProduccion O
         WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin
         GROUP BY FORMAT(O.OrdenFecha, 'yyyy-MM')
@@ -1541,9 +1667,7 @@ BEGIN
         ISNULL(V.TotalVentas, 0) AS IngresosPorVentas,
         ISNULL(V.ParesVendidos, 0) AS ParesVendidos,
         ISNULL(P.ParesProducidos, 0) AS ParesProducidos,
-        -- Diferencia (Producción - Ventas)
         ISNULL(P.ParesProducidos, 0) - ISNULL(V.ParesVendidos, 0) AS DiferenciaPares,
-        -- Porcentaje de conversión (Ventas / Producción)
         CASE 
             WHEN ISNULL(P.ParesProducidos, 0) = 0 THEN 0
             ELSE CAST(ISNULL(V.ParesVendidos, 0) AS DECIMAL(10,2)) / CAST(P.ParesProducidos AS DECIMAL(10,2)) * 100
@@ -1554,40 +1678,26 @@ BEGIN
 END
 GO
 
--- =========================================================================
--- 5.4 REPORTE DE STOCK ACTUAL (SIMPLIFICADO)
--- =========================================================================
+-- 5.4 Reporte de Stock
 CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Stock
     @Tipo NVARCHAR(20) = 'TODOS' 
+AS
 BEGIN
     SET NOCOUNT ON
 
     CREATE TABLE #StockTemp (
-        Tipo NVARCHAR(20),
-        Codigo NVARCHAR(10),
-        Nombre NVARCHAR(100),
-        Categoria NVARCHAR(50),
-        Color NVARCHAR(50),
-        Talla NVARCHAR(10),
-        Stock NVARCHAR(20),
-        Precio NVARCHAR(20),
-        Estado NVARCHAR(20),
-        Prioridad INT,
-        StockNumero FLOAT
+        Tipo NVARCHAR(20), Codigo NVARCHAR(10), Nombre NVARCHAR(100), Categoria NVARCHAR(50),
+        Color NVARCHAR(50), Talla NVARCHAR(10), Stock NVARCHAR(20), Precio NVARCHAR(20),
+        Estado NVARCHAR(20), Prioridad INT, StockNumero FLOAT
     )
 
     IF @Tipo = 'TODOS' OR @Tipo = 'CALZADO'
     BEGIN
         INSERT INTO #StockTemp (Tipo, Codigo, Nombre, Categoria, Color, Talla, Stock, Precio, Estado, Prioridad, StockNumero)
         SELECT
-            'Calzado' AS Tipo,
-            CalzadoCodigo AS Codigo,
-            CalzadoModelo AS Nombre,
-            CalzadoTipo AS Categoria,
-            CalzadoColor AS Color,
-            CAST(CalzadoTalla AS NVARCHAR(10)) AS Talla,
-            CAST(CalzadoStock AS NVARCHAR(20)) AS Stock,
-            CAST(CalzadoPrecioVenta AS NVARCHAR(20)) AS Precio,
+            'Calzado' AS Tipo, CalzadoCodigo AS Codigo, CalzadoModelo AS Nombre, CalzadoTipo AS Categoria,
+            CalzadoColor AS Color, CAST(CalzadoTalla AS NVARCHAR(10)) AS Talla,
+            CAST(CalzadoStock AS NVARCHAR(20)) AS Stock, CAST(CalzadoPrecioVenta AS NVARCHAR(20)) AS Precio,
             CASE 
                 WHEN CalzadoStock = 0 THEN 'Sin Stock'
                 WHEN CalzadoStock <= 5 THEN 'Stock Bajo'
@@ -1599,22 +1709,16 @@ BEGIN
                 ELSE 3
             END AS Prioridad,
             CAST(CalzadoStock AS FLOAT) AS StockNumero
-        FROM Inventario.Calzado
-        WHERE CalzadoEstado = 'A'
+        FROM Inventario.Calzado WHERE CalzadoEstado = 'A'
     END
 
     IF @Tipo = 'TODOS' OR @Tipo = 'MATERIAL'
     BEGIN
         INSERT INTO #StockTemp (Tipo, Codigo, Nombre, Categoria, Color, Talla, Stock, Precio, Estado, Prioridad, StockNumero)
         SELECT
-            'Material' AS Tipo,
-            MaterialCodigo AS Codigo,
-            MaterialNombre AS Nombre,
-            MaterialCategoria AS Categoria,
-            '' AS Color,
-            'N/A' AS Talla,
-            CAST(MaterialCantidad AS NVARCHAR(20)) AS Stock,
-            'S/.0.00' AS Precio,
+            'Material' AS Tipo, MaterialCodigo AS Codigo, MaterialNombre AS Nombre, MaterialCategoria AS Categoria,
+            '' AS Color, 'N/A' AS Talla,
+            CAST(MaterialCantidad AS NVARCHAR(20)) AS Stock, 'S/.0.00' AS Precio,
             CASE 
                 WHEN MaterialCantidad = 0 THEN 'Sin Stock'
                 WHEN MaterialCantidad <= 5 THEN 'Stock Bajo'
@@ -1626,30 +1730,17 @@ BEGIN
                 ELSE 3
             END AS Prioridad,
             CAST(MaterialCantidad AS FLOAT) AS StockNumero
-        FROM Inventario.Material
-        WHERE MaterialEstado = 'A'
+        FROM Inventario.Material WHERE MaterialEstado = 'A'
     END
 
-    SELECT 
-        Tipo,
-        Codigo,
-        Nombre,
-        Categoria,
-        Color,
-        Talla,
-        Stock,
-        Precio,
-        Estado
-    FROM #StockTemp
-    ORDER BY Prioridad ASC, StockNumero ASC
+    SELECT Tipo, Codigo, Nombre, Categoria, Color, Talla, Stock, Precio, Estado
+    FROM #StockTemp ORDER BY Prioridad ASC, StockNumero ASC
 
     DROP TABLE #StockTemp
 END
 GO
 
--- =========================================================================
--- 5.5 REPORTE DE VENTAS DETALLADO (para PDF)
--- =========================================================================
+-- 5.5 Reporte de Ventas Detallado
 CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Ventas_Detalle
     @FechaInicio DATE = NULL,
     @FechaFin DATE = NULL,
@@ -1658,37 +1749,24 @@ AS
 BEGIN
     SET NOCOUNT ON
     
-    IF @FechaInicio IS NULL
-        SET @FechaInicio = DATEADD(DAY, -30, GETDATE())
-    IF @FechaFin IS NULL
-        SET @FechaFin = GETDATE()
+    IF @FechaInicio IS NULL SET @FechaInicio = DATEADD(DAY, -30, GETDATE())
+    IF @FechaFin IS NULL SET @FechaFin = GETDATE()
 
     SELECT
-        V.VentaID,
-        V.FechaVenta AS Fecha,
-        V.Total AS TotalVenta,
-        U.UsuarioNombre AS Vendedor,
-        CA.CalzadoModelo AS Modelo,
-        CA.CalzadoTipo AS Tipo,
-        CA.CalzadoColor AS Color,
-        CA.CalzadoTalla AS Talla,
-        VD.Cantidad,
-        VD.PrecioUnitario,
-        VD.Subtotal
+        V.VentaID, V.FechaVenta AS Fecha, V.Total AS TotalVenta, U.UsuarioNombre AS Vendedor,
+        CA.CalzadoModelo AS Modelo, CA.CalzadoTipo AS Tipo, CA.CalzadoColor AS Color, CA.CalzadoTalla AS Talla,
+        VD.Cantidad, VD.PrecioUnitario, VD.Subtotal
     FROM Inventario.Venta V
     INNER JOIN Inventario.VentaDetalle VD ON V.VentaID = VD.VentaID
     INNER JOIN Inventario.Calzado CA ON VD.CalzadoCodigo = CA.CalzadoCodigo
     INNER JOIN Seguridad.Usuario U ON V.UsuarioID = U.UsuarioID
     WHERE V.FechaVenta BETWEEN @FechaInicio AND @FechaFin
-        AND V.Estado = 'A'
-        AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)
+        AND V.Estado = 'A' AND (@UsuarioID IS NULL OR V.UsuarioID = @UsuarioID)
     ORDER BY V.FechaVenta DESC, V.VentaID DESC
 END
 GO
 
--- =========================================================================
--- 5.6 REPORTE DE PRODUCCIÓN DETALLADO (para PDF)
--- =========================================================================
+-- 5.6 Reporte de Producción Detallado
 CREATE OR ALTER PROCEDURE Inventario.USP_Reporte_Produccion_Detalle
     @FechaInicio DATE = NULL,
     @FechaFin DATE = NULL,
@@ -1697,21 +1775,13 @@ AS
 BEGIN
     SET NOCOUNT ON
     
-    IF @FechaInicio IS NULL
-        SET @FechaInicio = DATEADD(DAY, -30, GETDATE())
-    IF @FechaFin IS NULL
-        SET @FechaFin = GETDATE()
+    IF @FechaInicio IS NULL SET @FechaInicio = DATEADD(DAY, -30, GETDATE())
+    IF @FechaFin IS NULL SET @FechaFin = GETDATE()
 
-    -- Cabecera
     SELECT
-        O.OrdenID,
-        O.OrdenFecha AS Fecha,
-        O.CantidadPares AS ParesProducidos,
-        U.UsuarioNombre AS Operario,
-        CA.CalzadoModelo AS Modelo,
-        CA.CalzadoTipo AS Tipo,
-        CA.CalzadoColor AS Color,
-        CA.CalzadoTalla AS Talla
+        O.OrdenID, O.OrdenFecha AS Fecha, O.CantidadPares AS ParesProducidos,
+        U.UsuarioNombre AS Operario, CA.CalzadoModelo AS Modelo,
+        CA.CalzadoTipo AS Tipo, CA.CalzadoColor AS Color, CA.CalzadoTalla AS Talla
     FROM Inventario.OrdenProduccion O
     INNER JOIN Inventario.Calzado CA ON O.CalzadoCodigo = CA.CalzadoCodigo
     INNER JOIN Seguridad.Usuario U ON O.UsuarioID = U.UsuarioID
@@ -1719,22 +1789,12 @@ BEGIN
         AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)
     ORDER BY O.OrdenFecha DESC, O.OrdenID DESC
 
-    -- Materiales consumidos
     SELECT
-        OD.OrdenID,
-        M.MaterialNombre AS Material,
-        OD.CantidadConsumida AS Cantidad,
-        M.MaterialMedida AS Unidad
+        OD.OrdenID, M.MaterialNombre AS Material, OD.CantidadConsumida AS Cantidad, M.MaterialMedida AS Unidad
     FROM Inventario.OrdenProduccionDetalle OD
     INNER JOIN Inventario.Material M ON OD.MaterialCodigo = M.MaterialCodigo
-    WHERE OD.OrdenID IN (
-        SELECT O.OrdenID
-        FROM Inventario.OrdenProduccion O
-        WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin
-            AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID)
-    )
+    WHERE OD.OrdenID IN (SELECT O.OrdenID FROM Inventario.OrdenProduccion O WHERE O.OrdenFecha BETWEEN @FechaInicio AND @FechaFin AND (@UsuarioID IS NULL OR O.UsuarioID = @UsuarioID))
     ORDER BY OD.OrdenID, M.MaterialNombre
 END
 GO
-
 

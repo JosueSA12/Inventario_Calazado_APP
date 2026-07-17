@@ -4,8 +4,8 @@ import "dart:convert";
 
 import "package:inventario/core/theme/app_colors.dart";
 import "package:inventario/core/widgets/calzado_card.dart";
-import "package:inventario/formularios/formulario_resgistrar_calzado.dart";
 import "package:inventario/core/services/notification_service.dart";
+import 'package:inventario/screens/produccion/produccion_screen.dart';
 
 class CalzadosView extends StatefulWidget {
   final String? usuarioID;
@@ -30,7 +30,7 @@ class _CalzadosViewState extends State<CalzadosView> {
     'Urbano',
     'Deportivo',
     'Tacos',
-    'Sandalias',
+    'Sandalia',
   ];
 
   @override
@@ -60,11 +60,23 @@ class _CalzadosViewState extends State<CalzadosView> {
   }
 
   void _navegarARegistrarProduccion(Map<String, dynamic>? calzado) {
+    final calzadoCompleto = calzado != null
+        ? {
+            'codigo': calzado['codigo'] ?? '',
+            'modelo': calzado['modelo'] ?? '',
+            'tipo': calzado['tipo'] ?? '',
+            'color': calzado['color'] ?? '',
+            'talla': calzado['talla']?.toString() ?? '',
+            'precio': calzado['precio'] ?? 0.0,
+            'stock': calzado['stock'] ?? 0,
+          }
+        : null;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => FormularioProduccionCalzado(
-          calzadoInicial: calzado,
+        builder: (_) => ProduccionScreen(
+          calzadoInicial: calzadoCompleto,
           usuarioID: widget.usuarioID,
         ),
       ),

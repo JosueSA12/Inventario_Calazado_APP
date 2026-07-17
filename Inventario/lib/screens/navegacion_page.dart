@@ -2,7 +2,7 @@
 import "package:flutter/material.dart";
 import "package:provider/provider.dart";
 
-import "dashboard_inicio.dart";
+import "dashboard/dashboard_inicio.dart";
 import "package:inventario/screens/alertas_stock_view.dart";
 import "package:inventario/screens/calzado_view.dart";
 import "package:inventario/screens/materiales_view.dart";

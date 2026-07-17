@@ -75,20 +75,12 @@ class _ReporteChartState extends State<ReporteChart>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.items.isEmpty) return const SizedBox();
+    // ✅ FILTRAR SOLO ITEMS CON VALOR > 0
+    final itemsFiltrados = widget.items
+        .where((item) => (item[widget.valorKey] ?? 0) > 0)
+        .toList();
 
-    final maxValor = widget.items.take(10).fold<double>(0, (max, item) {
-      final valor = (item[widget.valorKey] ?? 0).toDouble();
-      return valor > max ? valor : max;
-    });
-
-    // USAR LAS UTILIDADES
-    final tituloDinamico = FormatoFechas.tituloGrafico(
-      widget.titulo,
-      widget.tipoFiltro,
-    );
-
-    if (maxValor == 0) {
+    if (itemsFiltrados.isEmpty) {
       return Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -105,10 +97,11 @@ class _ReporteChartState extends State<ReporteChart>
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    tituloDinamico,
-                    style: const TextStyle(
+                    'No hay datos para mostrar',
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade600,
                     ),
                   ),
                 ],
@@ -140,14 +133,22 @@ class _ReporteChartState extends State<ReporteChart>
       );
     }
 
-    final Color colorPrincipal = _paletaColores.first;
-
-    final int total = widget.items.take(10).fold<int>(0, (sum, item) {
-      return sum + ((item[widget.valorKey] ?? 0) as int);
+    // ✅ USAR itemsFiltrados para los cálculos
+    final maxValor = itemsFiltrados.take(10).fold<double>(0, (max, item) {
+      final valor = (item[widget.valorKey] ?? 0).toDouble();
+      return valor > max ? valor : max;
     });
 
-    final int count = widget.items.take(10).length;
-    final double promedio = count > 0 ? total / count : 0;
+    final tituloDinamico = FormatoFechas.tituloGrafico(
+      widget.titulo,
+      widget.tipoFiltro,
+    );
+
+    final Color colorPrincipal = _paletaColores.first;
+
+    final int total = itemsFiltrados.take(10).fold<int>(0, (sum, item) {
+      return sum + ((item[widget.valorKey] ?? 0) as int);
+    });
 
     return Card(
       elevation: 2,
@@ -179,9 +180,7 @@ class _ReporteChartState extends State<ReporteChart>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    FormatoFechas.tituloFiltro(
-                      widget.tipoFiltro,
-                    ), // <-- USAR UTILIDAD
+                    '${itemsFiltrados.length} días con datos',
                     style: TextStyle(
                       fontSize: 10,
                       color: colorPrincipal,
@@ -199,7 +198,7 @@ class _ReporteChartState extends State<ReporteChart>
                   height: 180,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children: widget.items
+                    children: itemsFiltrados
                         .take(10)
                         .toList()
                         .asMap()
@@ -223,7 +222,6 @@ class _ReporteChartState extends State<ReporteChart>
                             fecha = DateTime.now();
                           }
 
-                          // USAR LA UTILIDAD PARA FORMATEAR
                           final etiqueta = FormatoFechas.formatearPorFiltro(
                             fecha,
                             widget.tipoFiltro,
@@ -298,7 +296,7 @@ class _ReporteChartState extends State<ReporteChart>
                   ),
                 ),
                 Text(
-                  'Promedio: ${promedio.toStringAsFixed(1)} ${widget.unidad}',
+                  'Días: ${itemsFiltrados.length}',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
                 Text(

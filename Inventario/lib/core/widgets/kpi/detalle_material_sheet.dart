@@ -95,13 +95,13 @@ class DetalleBajoStockSheet extends StatelessWidget {
           ),
           const Divider(height: 32, thickness: 1.2),
 
-          _buildInfoRow("📋 Código", codigo, isCode: true),
-          _buildInfoRow("📂 Categoría", categoria),
+          _buildInfoRow("Código", codigo, isCode: true),
+          _buildInfoRow("Categoría", categoria),
           _buildInfoRow(
-            "🏢 Proveedor",
+            "Proveedor",
             proveedor.isEmpty ? "Sin proveedor" : proveedor,
           ),
-          _buildInfoRow("📦 Stock Actual", "$cantidad $medida", isDanger: true),
+          _buildInfoRow("Stock Actual", "$cantidad $medida", isDanger: true),
 
           const SizedBox(height: 32),
 
@@ -294,14 +294,14 @@ class DetalleMaterialGeneralSheet extends StatelessWidget {
           ),
           const Divider(height: 32, thickness: 1.2),
 
-          _buildInfoRow("📋 Código", codigo, isCode: true),
-          _buildInfoRow("📂 Categoría", categoria),
+          _buildInfoRow("Código", codigo, isCode: true),
+          _buildInfoRow("Categoría", categoria),
           _buildInfoRow(
-            "🏢 Proveedor",
+            "Proveedor",
             proveedor.isEmpty ? "Sin proveedor" : proveedor,
           ),
           _buildInfoRow(
-            "📦 Stock Disponible",
+            "Stock Disponible",
             "$cantidad $medida",
             isSuccess: true,
           ),

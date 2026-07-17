@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class Notificacion {
+  final String id;
   final String titulo;
   final String mensaje;
   final IconData icono;
@@ -9,16 +10,21 @@ class Notificacion {
   bool leida;
 
   Notificacion({
+    String? id, // ✅ Ahora es opcional
     required this.titulo,
     required this.mensaje,
     required this.icono,
     required this.color,
     DateTime? timestamp,
     this.leida = false,
-  }) : timestamp = timestamp ?? DateTime.now();
+  }) : id =
+           id ??
+           'notif_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}',
+       timestamp = timestamp ?? DateTime.now();
 
   Notificacion copyWith({bool? leida}) {
     return Notificacion(
+      id: id,
       titulo: titulo,
       mensaje: mensaje,
       icono: icono,
@@ -31,31 +37,59 @@ class Notificacion {
 
 class NotificacionProvider extends ChangeNotifier {
   final List<Notificacion> _notificaciones = [];
+  final Set<String> _idsMostrados = {};
+
+  static const Duration _tiempoVida = Duration(seconds: 120);
 
   List<Notificacion> get notificaciones => _notificaciones;
   bool get tieneNotificaciones => _notificaciones.isNotEmpty;
 
   void agregarNotificacion(Notificacion notificacion) {
-    _notificaciones.insert(0, notificacion); // Nueva al principio
+    if (_idsMostrados.contains(notificacion.id)) {
+      return;
+    }
+
+    final existe = _notificaciones.any(
+      (n) =>
+          n.titulo == notificacion.titulo && n.mensaje == notificacion.mensaje,
+    );
+    if (existe) return;
+
+    _idsMostrados.add(notificacion.id);
+    _notificaciones.insert(0, notificacion);
     notifyListeners();
+
+    Future.delayed(_tiempoVida, () {
+      _eliminarNotificacionPorId(notificacion.id);
+    });
+  }
+
+  void _eliminarNotificacionPorId(String id) {
+    final index = _notificaciones.indexWhere((n) => n.id == id);
+    if (index != -1) {
+      _notificaciones.removeAt(index);
+      _idsMostrados.remove(id);
+      notifyListeners();
+    }
   }
 
   void marcarComoLeida(int index) {
     if (index < 0 || index >= _notificaciones.length) return;
-
     _notificaciones[index] = _notificaciones[index].copyWith(leida: true);
     notifyListeners();
   }
 
   void eliminarNotificacion(int index) {
     if (index < 0 || index >= _notificaciones.length) return;
-
+    final id = _notificaciones[index].id;
     _notificaciones.removeAt(index);
+    _idsMostrados.remove(id);
     notifyListeners();
   }
 
   void limpiarNotificaciones() {
     _notificaciones.clear();
+    _idsMostrados.clear();
     notifyListeners();
   }
 
@@ -67,4 +101,13 @@ class NotificacionProvider extends ChangeNotifier {
   }
 
   int get cantidadNoLeidas => _notificaciones.where((n) => !n.leida).length;
+
+  void limpiarAntiguas() {
+    final ahora = DateTime.now();
+    _notificaciones.removeWhere((n) {
+      final diferencia = ahora.difference(n.timestamp);
+      return diferencia > const Duration(minutes: 5);
+    });
+    notifyListeners();
+  }
 }

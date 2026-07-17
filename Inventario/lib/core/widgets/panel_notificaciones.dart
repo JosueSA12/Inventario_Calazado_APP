@@ -123,12 +123,12 @@ class PanelNotificaciones extends StatelessWidget {
 
   Widget _buildNotificacionCard(
     BuildContext context,
-    dynamic n,
+    Notificacion n,
     int index,
     NotificacionProvider provider,
   ) {
     return Dismissible(
-      key: Key('notification_$index'),
+      key: Key('notification_${n.id}_$index'),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
@@ -139,7 +139,11 @@ class PanelNotificaciones extends StatelessWidget {
         ),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (_) => provider.eliminarNotificacion(index),
+      onDismissed: (_) {
+        if (index < provider.notificaciones.length) {
+          provider.eliminarNotificacion(index);
+        }
+      },
       child: Card(
         elevation: 0.5,
         margin: const EdgeInsets.only(bottom: 12),
@@ -172,7 +176,7 @@ class PanelNotificaciones extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "${n.timestamp.hour}:${n.timestamp.minute.toString().padLeft(2, '0')}",
+                "${n.timestamp.hour.toString().padLeft(2, '0')}:${n.timestamp.minute.toString().padLeft(2, '0')}",
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
               if (!n.leida)
@@ -187,9 +191,7 @@ class PanelNotificaciones extends StatelessWidget {
             ],
           ),
           onTap: () {
-            // Aquí puedes marcar como leída y/o navegar a detalle
             provider.marcarComoLeida(index);
-            // Ejemplo: Navigator.push(...);
           },
         ),
       ),
