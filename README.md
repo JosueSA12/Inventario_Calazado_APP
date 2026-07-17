@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Flutter-3.22-blue?style=flat-square&logo=flutter" alt="Flutter">
   <img src="https://img.shields.io/badge/Node.js-18-green?style=flat-square&logo=node.js" alt="Node.js">
-  <img src="https://img.shields.io/badge/SQL%20Server-2019-red?style=flat-square&logo=microsoft-sql-server" alt="SQL Server">
+  <img src="https://img.shields.io/badge/SQL%20Server-2022-red?style=flat-square&logo=microsoft-sql-server" alt="SQL Server">
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square" alt="Status">
 </p>
