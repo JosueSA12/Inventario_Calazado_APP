@@ -96,7 +96,7 @@ Motor SQL Server alojado en un servidor remoto (site4now.net). Implementa restri
 
 ---
 
-## Guía de Instalación y Configuración
+## Guía de Instalación
 
 ### Aplicación Móvil (Flutter)
 
