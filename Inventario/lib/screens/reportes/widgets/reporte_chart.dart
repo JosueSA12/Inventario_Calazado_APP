@@ -6,7 +6,7 @@ class ReporteChart extends StatefulWidget {
   final String titulo;
   final String valorKey;
   final String unidad;
-  final String? tipoFiltro; // DIA, SEMANA, MES, ANIO, RANGO
+  final String? tipoFiltro;
 
   const ReporteChart({
     super.key,
@@ -75,7 +75,6 @@ class _ReporteChartState extends State<ReporteChart>
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FILTRAR SOLO ITEMS CON VALOR > 0
     final itemsFiltrados = widget.items
         .where((item) => (item[widget.valorKey] ?? 0) > 0)
         .toList();
@@ -133,7 +132,6 @@ class _ReporteChartState extends State<ReporteChart>
       );
     }
 
-    // ✅ USAR itemsFiltrados para los cálculos
     final maxValor = itemsFiltrados.take(10).fold<double>(0, (max, item) {
       final valor = (item[widget.valorKey] ?? 0).toDouble();
       return valor > max ? valor : max;

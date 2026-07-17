@@ -1,48 +1,128 @@
-# 👟 Sistema de Gestión de Inventario y Producción - Taller de Calzado
+<p align="center">
+  <img src="baner_taller_calzado.png" alt="Sistema de Gestión de Taller de Calzado" width="100%" style="border-radius: 12px;">
+</p>
 
-¡Bienvenido al sistema de control de inventario y producción en tiempo real para talleres de calzado! Este es un proyecto con arquitectura cliente-servidor real, diseñado para optimizar el flujo de fabricación de lotes, catalogación de modelos, abastecimiento de insumos y registro automatizado de ventas.
+# Sistema de Gestión de Inventario y Producción para Taller de Calzado
+
+<p align="center">
+  <strong>Gestión inteligente de inventario · Producción automatizada · Ventas · Reportes</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Flutter-3.22-blue?style=flat-square&logo=flutter" alt="Flutter">
+  <img src="https://img.shields.io/badge/Node.js-18-green?style=flat-square&logo=node.js" alt="Node.js">
+  <img src="https://img.shields.io/badge/SQL%20Server-2019-red?style=flat-square&logo=microsoft-sql-server" alt="SQL Server">
+  <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/Status-Production-brightgreen?style=flat-square" alt="Status">
+</p>
 
 ---
 
-## 📐 Arquitectura del Sistema
+## Tabla de Contenidos
+
+- [Arquitectura del Sistema](#arquitectura-del-sistema)
+- [Características Principales](#características-principales)
+- [Tecnologías Utilizadas](#tecnologías-utilizadas)
+- [Guía de Instalación](#guía-de-instalación)
+- [Estructura de la Base de Datos](#estructura-de-la-base-de-datos)
+- [Flujo de Trabajo](#flujo-de-trabajo)
+- [Capturas de Pantalla](#capturas-de-pantalla)
+- [Mejoras Futuras](#mejoras-futuras)
+- [Licencia](#licencia)
+
+---
+
+## Arquitectura del Sistema
 
 El proyecto está compuesto por tres capas principales conectadas a través de Internet:
 
-1. **📱 Aplicación Móvil (Cliente):** Construida en **Flutter**, ofrece una interfaz intuitiva con animaciones fluidas, dashboards dinámicos y control visual inteligente de stock crítico.
-2. **🌐 Servidor API REST (Backend):** Desarrollado en **Node.js con Express**, encargado de gestionar la lógica de negocio de manera segura y exponer los endpoints consumidos por la app móvil.
-3. **🗄️ Base de Datos (Nube):** Aloja un motor de **SQL Server** en un servidor remoto (`site4now.net`). Implementa restricciones relacionales avanzadas, disparadores (`Constraints`) y Procedimientos Almacenados (`Stored Procedures`) transaccionales con soporte JSON para recetas de fabricación.
+**Aplicación Móvil (Cliente)**
+Desarrollada en Flutter, ofrece una interfaz intuitiva con dashboards dinámicos, animaciones fluidas y control visual inteligente de stock crítico.
+
+**Servidor API REST (Backend)**
+Construido con Node.js y Express, gestiona la lógica de negocio de manera segura y expone los endpoints consumidos por la aplicación móvil.
+
+**Base de Datos (Nube)**
+Motor SQL Server alojado en un servidor remoto (site4now.net). Implementa restricciones relacionales avanzadas y procedimientos almacenados transaccionales para garantizar la integridad de los datos.
 
 ---
 
-## ✨ Características Principales
+## Características Principales
 
-* **📊 Dashboard en Tiempo Real:** Métricas clave (KPIs) con el total de modelos, cantidad de materiales e indicadores visuales de alertas de stock bajo.
-* **📜 Historial de Actividad Automatizado:** Cada ingreso, consumo en taller, descarte o venta genera un registro cronológico inmutable respaldado por llaves foráneas.
-* **🧪 Módulo de Producción Inteligente (JSON):** Permite registrar la fabricación de un calzado enviando la receta de materiales en formato JSON. El motor SQL Server deduce automáticamente el inventario de insumos correspondientes usando `OPENJSON` en una transacción segura.
-* **🛒 Carrito de Ventas Múltiples:** Registro transaccional seguro de salidas de calzado terminado con rollback automático ante quiebres de stock imprevistos.
+### Dashboard en Tiempo Real
+- KPIs dinámicos según filtro seleccionado (Ventas, Producción, Consumo, Abastecimiento, Descarte)
+- Historial de actividad reciente con detalle de movimientos
+- Alertas automáticas de stock bajo de materiales
+- Notificaciones en tiempo real con auto-eliminación
+
+### Gestión de Calzados
+- Catálogo completo con imágenes y filtros por tipo
+- Control de stock y precios actualizados
+- Botón rápido para producción automática
+- Visualización de variantes (color, talla)
+
+### Gestión de Materiales (Insumos)
+- Registro, edición y eliminación de materiales
+- Control de stock con alertas críticas (menos de 5 unidades)
+- Categorización por tipo de insumo
+- Abastecimiento con historial de movimientos
+
+### Producción Automática Inteligente
+- Sistema basado en recetas predefinidas
+- Cada calzado tiene su receta de materiales configurada
+- Validación automática de stock disponible
+- Cálculo automático de materiales consumidos
+- Registro en historial de producción
+
+### Ventas y Carrito de Compras
+- Agregar productos al carrito con validación de stock
+- Confirmación de ventas con rollback automático
+- Historial de ventas con detalle de productos
+- Actualización automática de inventario
+
+### Reportes y Estadísticas Avanzadas
+- Gráficos interactivos con agrupación inteligente (Día, Semana, Mes, Año)
+- Exportación a PDF
+- Comparativa Ventas vs Producción por período
+- Top 5 productos más vendidos y producidos
+- Resumen de stock actual
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## Tecnologías Utilizadas
 
-* **Frontend:** Flutter (Dart), PandaBar (Navigation), Shimmer Loading, HTTP.
-* **Backend:** Node.js, Express, Cors, Mssql (Driver oficial para SQL Server).
-* **Database:** SQL Server 2019+, T-SQL, Programación Transaccional, JSON mapping.
+| Tecnología | Propósito |
+|------------|-----------|
+| Flutter | Frontend móvil con Provider para gestión de estado |
+| Node.js + Express | API REST Backend |
+| SQL Server | Base de datos en la nube con procedimientos almacenados transaccionales |
+| HTTP | Comunicación cliente-servidor |
+| Printing | Exportación de reportes a PDF |
 
 ---
 
-## 🚀 Guía de Instalación y Configuración
+## Guía de Instalación y Configuración
 
-### 1. Base de Datos (SQL Server)
-Si deseas restaurar o limpiar la base de datos remota/local:
-* Ejecuta primero el script de limpieza `DROP TABLE` respetando las dependencias de llaves foráneas.
-* Ejecuta el script de estructura e inserción de datos iniciales en tu gestor (SSMS) para desplegar los esquemas `Seguridad` e `Inventario`, junto con los 24 calzados iniciales, 16 insumos base y los Procedimientos Almacenados (`USP_`).
+### Aplicación Móvil (Flutter)
 
-### 2. Backend (Node.js API REST)
-Navega a la carpeta de tu servidor, instala las dependencias y enciende el servicio:
 ```bash
-# Instalar módulos de Node.js
-npm install
+# Clonar el repositorio
+git clone https://github.com/JosueSA12/Inventario_Calazado_APP.git
 
-# Iniciar el servidor API
-node server.js
+# Ingresar al directorio
+cd Inventario_Calazado_APP
+
+# Instalar dependencias
+flutter pub get
+
+# Configurar URL base en los providers
+# baseUrl: "http://tu-ip:3000/api"
+
+# Ejecutar la aplicación
+flutter run
+
+## Contacto
+
+**Josue Solano**  
+Email: solanoamarantoj@gmail.com  
+GitHub: [@tusuario](https://github.com/JosueSA12) 
